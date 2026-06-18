@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>print-watch</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🖨️ print-watch</h1>
+      <div id="status" class="status">connecting…</div>
+    </header>
+
+    <main>
+      <section class="panel preview">
+        <div class="panel-head">
+          <h2>Live view</h2>
+          <label class="toggle"><input type="checkbox" id="autorefresh" checked /> auto-refresh</label>
+        </div>
+        <div class="frame">
+          <img id="preview" alt="camera preview" />
+        </div>
+        <p class="hint">This is the preprocessed frame exactly as the model sees it.</p>
+      </section>
+
+      <section class="panel check">
+        <div class="panel-head">
+          <h2>Has this print failed?</h2>
+          <button id="checkBtn" class="primary">Check now</button>
+        </div>
+        <div id="checkProgress" class="progress"></div>
+        <div id="checkResult" class="result empty">No check run yet.</div>
+      </section>
+
+      <section class="panel troubleshoot">
+        <h2>Why did it fail? — investigate</h2>
+        <textarea id="symptom" rows="2" placeholder="Describe what you see, e.g. 'first layer not sticking on the left side' or 'print turned into spaghetti halfway up'"></textarea>
+        <button id="tsBtn" class="primary">Investigate</button>
+        <div id="tsResult"></div>
+      </section>
+
+      <section class="panel history">
+        <h2>Recent checks</h2>
+        <div id="history" class="history-list">—</div>
+      </section>
+
+      <section class="panel log">
+        <h2>Activity</h2>
+        <div id="log" class="logbox"></div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

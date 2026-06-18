@@ -1,0 +1,8 @@
+# Default owner for everything in the repo.
+# Area reviewers can be added below as the project grows — see CONTRIBUTING.md.
+*                       @amosroger91
+
+# Examples (uncomment / assign as area owners step up):
+# /src/capture/         @amosroger91
+# /src/ai/              @amosroger91
+# /web/                 @amosroger91

@@ -1,0 +1,41 @@
+{
+  "name": "printjob-llm-webcam-monitor",
+  "version": "0.1.0",
+  "description": "Watches a webcam pointed at a 3D printer and uses a local vision model to detect and troubleshoot print failures.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amosroger91/printjob-llm-webcam-monitor.git"
+  },
+  "keywords": [
+    "3d-printing",
+    "ollama",
+    "vision",
+    "llm",
+    "octoprint",
+    "print-failure",
+    "spaghetti-detection",
+    "local-ai"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "serve": "node dist/index.js",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sharp": "^0.33.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

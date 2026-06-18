@@ -1,0 +1,35 @@
+{
+  "server": {
+    "port": 8787,
+    "host": "127.0.0.1"
+  },
+  "camera": {
+    "comment": "type: 'http-snapshot' (OctoPrint ?action=snapshot or any JPEG URL), 'mjpeg' (MJPEG stream URL), 'usb' (local webcam via ffmpeg), or 'folder' (watch a directory of images).",
+    "type": "http-snapshot",
+    "url": "http://localhost:8080/?action=snapshot",
+    "usbDevice": "video=Integrated Camera",
+    "folderPath": "./data/incoming"
+  },
+  "image": {
+    "comment": "Preprocessing tuned for small local vision models. maxSize keeps the long edge small so the model sees the whole bed without huge token cost.",
+    "maxSize": 1024,
+    "crop": null,
+    "normalize": true,
+    "grayscale": false
+  },
+  "ai": {
+    "provider": "ollama",
+    "baseUrl": "http://localhost:11434",
+    "model": "gemma3:4b",
+    "comment": "Any Ollama vision model works: gemma3:4b (installed), qwen2.5vl:7b, llava:7b, llama3.2-vision:11b, moondream.",
+    "temperature": 0,
+    "numCtx": 4096
+  },
+  "check": {
+    "comment": "Double-check controls. samples = self-consistency votes per frame; frames = cross-frame captures; frameDelayMs = gap between frames; confidenceThreshold = below this, result is flagged 'uncertain'.",
+    "samples": 2,
+    "frames": 2,
+    "frameDelayMs": 4000,
+    "confidenceThreshold": 0.6
+  }
+}
