@@ -17,25 +17,34 @@ import type {
   SinglePass,
 } from "../types.js";
 
-const ISSUE_TYPES: IssueType[] = ["spaghetti", "detached", "blob", "stringing", "layer_shift"];
+// Catastrophic modes mean the print has failed even if the model under-rates the overall
+// state. Stringing/other on their own are treated as minor unless the model says "failing".
+const CATASTROPHIC: IssueType[] = ["spaghetti", "detached", "blob", "layer_shift"];
+const CERTAINTY_CONF: Record<RawFailureJson["certainty"], number> = { low: 0.4, medium: 0.65, high: 0.9 };
 
-function rawToPass(raw: RawFailureJson): SinglePass {
+/**
+ * Map the model's categorical report to a verdict. The baseline eval showed the model's
+ * own holistic judgment is unreliable, but its anomaly detection is strong — so we derive
+ * "failed" from the detected issue + state rather than trusting a single boolean.
+ */
+export function rawToPass(raw: RawFailureJson): SinglePass {
+  const issue = raw.primary_issue;
+  const stateFailing = raw.print_state === "failing";
+  const failed = stateFailing || CATASTROPHIC.includes(issue as IssueType);
+
+  let confidence = CERTAINTY_CONF[raw.certainty] ?? 0.4;
+  if (raw.print_state === "unsure") confidence = Math.min(confidence, 0.3);
+
   const issues: IssueFinding[] = [];
-  for (const t of ISSUE_TYPES) {
-    const present = Boolean((raw as unknown as Record<string, boolean>)[t]);
-    if (present) {
-      issues.push({ type: t, present: true, severity: raw.most_severe === "none" ? "minor" : raw.most_severe, note: "" });
-    }
+  if (issue && issue !== "none") {
+    issues.push({
+      type: issue as IssueType,
+      present: true,
+      severity: failed ? "major" : "minor",
+      note: raw.reasoning ?? "",
+    });
   }
-  if (raw.other_problem) {
-    issues.push({ type: "other", present: true, severity: raw.most_severe === "none" ? "minor" : raw.most_severe, note: raw.reasoning });
-  }
-  return {
-    failed: Boolean(raw.failed),
-    confidence: clamp01(raw.confidence),
-    issues,
-    reasoning: raw.reasoning ?? "",
-  };
+  return { failed, confidence: clamp01(confidence), issues, reasoning: raw.reasoning ?? "" };
 }
 
 function clamp01(n: number): number {

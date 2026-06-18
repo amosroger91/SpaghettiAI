@@ -12,6 +12,7 @@ import { config } from "../src/config.js";
 import { prepareImage } from "../src/image/preprocess.js";
 import { OllamaVisionProvider } from "../src/ai/ollama.js";
 import { FAILURE_SCHEMA, FAILURE_SYSTEM, failureUserPrompt, type RawFailureJson } from "../src/ai/prompts.js";
+import { rawToPass } from "../src/analysis/failureCheck.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SAMPLES = Number(process.env.PW_EVAL_SAMPLES ?? 1);
@@ -60,12 +61,11 @@ for (const fx of manifest.fixtures) {
         schema: FAILURE_SCHEMA as unknown as Record<string, unknown>,
         temperature: 0,
       });
+      const pass = rawToPass(r);
       votes++;
-      if (r.failed) failVotes++;
-      confSum += typeof r.confidence === "number" ? r.confidence : 0;
-      for (const k of ["spaghetti", "detached", "blob", "stringing", "layer_shift"] as const) {
-        if ((r as unknown as Record<string, boolean>)[k]) issueSet.add(k);
-      }
+      if (pass.failed) failVotes++;
+      confSum += pass.confidence;
+      for (const iss of pass.issues) issueSet.add(iss.type);
     } catch (e) {
       console.log(`    pass error on ${fx.file}: ${(e as Error).message}`);
     }

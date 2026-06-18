@@ -7,66 +7,52 @@
 //   - concrete visual definitions so the model knows what each term looks like
 //   - explicit "if unsure, say so with low confidence" to curb false alarms
 
-export const FAILURE_SYSTEM = `You are a meticulous 3D-printing failure inspector.
-You look at one webcam photo of a printer mid-print and report only what is clearly visible.
-Be conservative: shadows, reflections, the moving nozzle, and stray light are NOT failures.
-If the image is blurry, dark, or ambiguous, report low confidence rather than guessing.
+export const FAILURE_SYSTEM = `You are a meticulous 3D-printing inspector looking at one webcam photo of a printer mid-print.
+Your job is to describe the state of the print honestly. Report only what is clearly visible;
+shadows, reflections, the moving nozzle, and stray light are NOT defects.
 Answer ONLY with the requested JSON. No prose.`;
 
-// Visual cheat-sheet appended to the user prompt.
-const FAILURE_MODES = `Failure modes to look for:
-- spaghetti: loose tangled strands of filament in the air or piled up, not attached to a solid object. The classic catastrophic failure.
-- detached: the print has come loose from the bed, shifted off its footprint, or is being dragged around.
-- blob: a large lump/glob of melted plastic stuck on the nozzle or on top of the print.
-- stringing: thin wispy hairs/threads stretched between parts of the print.
-- layer_shift: layers abruptly offset sideways so the object looks sheared/staircased.
-A clean print in progress looks like a solid, even object growing layer by layer on the bed.`;
+// Vivid, contrastive definitions. Small models do best when each option is described by
+// what it LOOKS like and how it differs from a clean print.
+const FAILURE_MODES = `Decide the overall state of the print:
+- "clean": a single solid, even object growing smoothly layer by layer. No loose material around it.
+- "minor": mostly fine, but small cosmetic defects (a few fine hairs/whiskers, slight roughness).
+- "failing": something is clearly wrong. Tell-tale signs:
+    * spaghetti: loose tangled strands/threads of filament piled up or waving in the air, NOT forming a solid object (a "bird's nest"). The classic catastrophic failure.
+    * detached: the object has come off the bed, shifted off its base, or is being dragged around.
+    * blob: a large lump/glob of melted plastic stuck on the print or nozzle.
+    * stringing: many threads stretched across or around the print.
+    * layer_shift: layers abruptly offset sideways so the object looks sheared.
+- "unsure": the image is too dark, blurry, or ambiguous to tell.`;
 
 export function failureUserPrompt(): string {
   return `Inspect this photo of a 3D print in progress.
 ${FAILURE_MODES}
 
-For each failure mode, decide if it is clearly present. Set "failed" true only if at least one MAJOR problem is visible. Give your confidence (0=guess, 1=certain) and one short sentence of reasoning.`;
+Report the overall print_state, the single most prominent issue (primary_issue, or "none"),
+how certain you are, and one short sentence describing what you see.`;
 }
 
+// Categorical fields only — a 4B model produces these far more reliably than a float
+// confidence (which it tends to peg at 0) or a holistic true/false "failed" judgment.
 export const FAILURE_SCHEMA = {
   type: "object",
   properties: {
-    failed: { type: "boolean" },
-    confidence: { type: "number" },
-    spaghetti: { type: "boolean" },
-    detached: { type: "boolean" },
-    blob: { type: "boolean" },
-    stringing: { type: "boolean" },
-    layer_shift: { type: "boolean" },
-    other_problem: { type: "boolean" },
-    most_severe: { type: "string", enum: ["none", "minor", "major"] },
+    print_state: { type: "string", enum: ["clean", "minor", "failing", "unsure"] },
+    primary_issue: {
+      type: "string",
+      enum: ["none", "spaghetti", "detached", "blob", "stringing", "layer_shift", "other"],
+    },
+    certainty: { type: "string", enum: ["low", "medium", "high"] },
     reasoning: { type: "string" },
   },
-  required: [
-    "failed",
-    "confidence",
-    "spaghetti",
-    "detached",
-    "blob",
-    "stringing",
-    "layer_shift",
-    "other_problem",
-    "most_severe",
-    "reasoning",
-  ],
+  required: ["print_state", "primary_issue", "certainty", "reasoning"],
 } as const;
 
 export interface RawFailureJson {
-  failed: boolean;
-  confidence: number;
-  spaghetti: boolean;
-  detached: boolean;
-  blob: boolean;
-  stringing: boolean;
-  layer_shift: boolean;
-  other_problem: boolean;
-  most_severe: "none" | "minor" | "major";
+  print_state: "clean" | "minor" | "failing" | "unsure";
+  primary_issue: "none" | "spaghetti" | "detached" | "blob" | "stringing" | "layer_shift" | "other";
+  certainty: "low" | "medium" | "high";
   reasoning: string;
 }
 
