@@ -1,0 +1,21 @@
+{
+  "_comment": "Labeled evaluation set. Images are NOT committed (see .gitignore); run `npm run fetch-fixtures` to download them locally from the sources below. Labels were assigned by visual inspection. 'failed' = a clearly visible print failure; 'healthy' = a normal print in progress.",
+  "fixtures": [
+    { "file": "ag_2.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/2.jpg" },
+    { "file": "ag_3.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/3.jpg" },
+    { "file": "ag_4.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/4.jpg" },
+    { "file": "ag_7.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/7.jpg" },
+    { "file": "ag_8.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/8.jpg" },
+    { "file": "ag_9.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/9.jpg" },
+    { "file": "ag_11.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/11.jpg" },
+    { "file": "ag_12.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/12.jpg" },
+
+    { "file": "hp_3dprinting.jpg",        "label": "healthy", "type": "none", "license": "CC0",         "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/3D_Printing.jpg/960px-3D_Printing.jpg" },
+    { "file": "hp_bambu_p1s.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/3D_Print_Timelapse_BambuLab_P1S.webm/960px--3D_Print_Timelapse_BambuLab_P1S.webm.jpg" },
+    { "file": "hp_bambu_x1c.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Timelapse_of_Bambu_Lab_X1_Carbon_printing_in_ABS_filament.webm/960px--Timelapse_of_Bambu_Lab_X1_Carbon_printing_in_ABS_filament.webm.jpg" },
+    { "file": "hp_inprogress.jpg",        "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/3D_printing_in_progress.jpg/960px-3D_printing_in_progress.jpg" },
+    { "file": "hp_printinprogress.jpg",   "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Printing_in_progress_in_a_3D_printer.webm/960px--Printing_in_progress_in_a_3D_printer.webm.jpg" },
+    { "file": "hp_reprap.jpg",            "label": "healthy", "type": "none", "license": "Public domain", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/RepRap-printing-object.ogv/960px--RepRap-printing-object.ogv.jpg" },
+    { "file": "hp_timelapse.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/3D_print_timelapse.webm/960px--3D_print_timelapse.webm.jpg" }
+  ]
+}

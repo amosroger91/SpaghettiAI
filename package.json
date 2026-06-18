@@ -26,7 +26,10 @@
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "serve": "node dist/index.js",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "fetch-fixtures": "tsx test/fetch-fixtures.ts",
+    "eval": "tsx test/eval.ts",
+    "test": "node --test --import tsx test/*.test.ts"
   },
   "dependencies": {
     "express": "^4.19.2",

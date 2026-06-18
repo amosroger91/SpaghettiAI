@@ -4,3 +4,10 @@ data/
 *.log
 .env
 .DS_Store
+
+# Evaluation images are downloaded via `npm run fetch-fixtures`, not committed.
+test/fixtures/
+test/pool/
+test/pool_healthy/
+test/sheet*.png
+test/eval-results.json
