@@ -30,6 +30,7 @@
     "samples": 2,
     "frames": 2,
     "frameDelayMs": 4000,
-    "confidenceThreshold": 0.6
+    "confidenceThreshold": 0.6,
+    "sampleTemperature": 0.6
   }
 }

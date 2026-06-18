@@ -28,6 +28,9 @@ export interface CheckConfig {
   frames: number;
   frameDelayMs: number;
   confidenceThreshold: number;
+  /** Temperature for self-consistency samples. >0 so repeated passes vary and the
+   *  majority vote is meaningful; a single sample always runs deterministically at 0. */
+  sampleTemperature: number;
 }
 
 export interface AppConfig {

@@ -16,6 +16,8 @@ import { rawToPass } from "../src/analysis/failureCheck.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SAMPLES = Number(process.env.PW_EVAL_SAMPLES ?? 1);
+// Single sample is deterministic; multi-sample votes need variation to be meaningful.
+const TEMP = SAMPLES > 1 ? config.check.sampleTemperature : 0;
 
 interface Fixture { file: string; label: "failed" | "healthy"; type: string; url: string }
 const manifest = JSON.parse(readFileSync(join(here, "fixtures.json"), "utf8")) as { fixtures: Fixture[] };
@@ -26,7 +28,7 @@ if (!health.ok) {
   console.error(`model not ready: ${health.detail}`);
   process.exit(1);
 }
-console.log(`\neval: model=${config.ai.model}  samples/image=${SAMPLES}  maxSize=${config.image.maxSize}\n`);
+console.log(`\neval: model=${config.ai.model}  samples/image=${SAMPLES}  temp=${TEMP}  maxSize=${config.image.maxSize}\n`);
 
 interface Row {
   file: string;
@@ -59,7 +61,7 @@ for (const fx of manifest.fixtures) {
         prompt: failureUserPrompt(),
         images: [prepped.base64],
         schema: FAILURE_SCHEMA as unknown as Record<string, unknown>,
-        temperature: 0,
+        temperature: TEMP,
       });
       const pass = rawToPass(r);
       votes++;

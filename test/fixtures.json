@@ -9,6 +9,9 @@
     { "file": "ag_9.jpg",  "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/9.jpg" },
     { "file": "ag_11.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/11.jpg" },
     { "file": "ag_12.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/12.jpg" },
+    { "file": "ag_13.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/13.jpg" },
+    { "file": "ag_15.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/15.jpg" },
+    { "file": "ag_y7.jpg", "label": "failed",  "type": "spaghetti", "license": "see repo (no explicit license)", "url": "https://raw.githubusercontent.com/alexgrigoras/failure_detection_for_3d_printing/master/model/images/images%20(7).jpg" },
 
     { "file": "hp_3dprinting.jpg",        "label": "healthy", "type": "none", "license": "CC0",         "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/3D_Printing.jpg/960px-3D_Printing.jpg" },
     { "file": "hp_bambu_p1s.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/3D_Print_Timelapse_BambuLab_P1S.webm/960px--3D_Print_Timelapse_BambuLab_P1S.webm.jpg" },
@@ -16,6 +19,10 @@
     { "file": "hp_inprogress.jpg",        "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/3D_printing_in_progress.jpg/960px-3D_printing_in_progress.jpg" },
     { "file": "hp_printinprogress.jpg",   "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Printing_in_progress_in_a_3D_printer.webm/960px--Printing_in_progress_in_a_3D_printer.webm.jpg" },
     { "file": "hp_reprap.jpg",            "label": "healthy", "type": "none", "license": "Public domain", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/RepRap-printing-object.ogv/960px--RepRap-printing-object.ogv.jpg" },
-    { "file": "hp_timelapse.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/3D_print_timelapse.webm/960px--3D_print_timelapse.webm.jpg" }
+    { "file": "hp_timelapse.jpg",         "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/3D_print_timelapse.webm/960px--3D_print_timelapse.webm.jpg" },
+    { "file": "hp_axiom.jpg",             "label": "healthy", "type": "none", "license": "CC BY-SA 4.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/AXIOM.jpg/960px-AXIOM.jpg" },
+    { "file": "hp_delta.jpg",             "label": "healthy", "type": "none", "license": "CC BY-SA 3.0", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Large_delta-style_3D_printer.jpg/960px-Large_delta-style_3D_printer.jpg" },
+    { "file": "hp_firstlayer.jpg",        "label": "healthy", "type": "none", "license": "CC BY 2.0",    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/3D_Printer_-_the_first_layer%2816661915478%29.jpg/960px-3D_Printer_-_the_first_layer%2816661915478%29.jpg" },
+    { "file": "hp_prusa_firstprint.jpg",  "label": "healthy", "type": "none", "license": "CC BY 2.0",    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Prusa_i3_Printer_-_First_Print_Detail_%288964040615%29.jpg/960px-Prusa_i3_Printer_-_First_Print_Detail_%288964040615%29.jpg" }
   ]
 }

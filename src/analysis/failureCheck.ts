@@ -105,7 +105,8 @@ export async function runFailureCheck(
           prompt: failureUserPrompt(),
           images: [prepped.base64],
           schema: FAILURE_SCHEMA as unknown as Record<string, unknown>,
-          temperature: 0,
+          // Deterministic for a single sample; vary samples so the vote is meaningful.
+          temperature: samples > 1 ? cfg.check.sampleTemperature : 0,
         });
         framePasses.push(rawToPass(json));
       } catch (e) {

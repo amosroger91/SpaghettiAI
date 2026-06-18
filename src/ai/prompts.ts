@@ -15,15 +15,21 @@ Answer ONLY with the requested JSON. No prose.`;
 // Vivid, contrastive definitions. Small models do best when each option is described by
 // what it LOOKS like and how it differs from a clean print.
 const FAILURE_MODES = `Decide the overall state of the print:
-- "clean": a single solid, even object growing smoothly layer by layer. No loose material around it.
+- "clean": a solid object growing layer by layer on the bed. It may be large, dark, intricate, or have many small parts printing at once — that is still clean as long as each part is a solid shape, not a loose tangle.
 - "minor": mostly fine, but small cosmetic defects (a few fine hairs/whiskers, slight roughness).
 - "failing": something is clearly wrong. Tell-tale signs:
-    * spaghetti: loose tangled strands/threads of filament piled up or waving in the air, NOT forming a solid object (a "bird's nest"). The classic catastrophic failure.
+    * spaghetti: a chaotic bird's-nest of loose, thin plastic strands going in random directions, piled up or waving in the air and NOT forming a solid object. This is plastic filament, the same color as the print.
     * detached: the object has come off the bed, shifted off its base, or is being dragged around.
     * blob: a large lump/glob of melted plastic stuck on the print or nozzle.
-    * stringing: many threads stretched across or around the print.
+    * stringing: many fine plastic threads stretched across or around the print.
     * layer_shift: layers abruptly offset sideways so the object looks sheared.
-- "unsure": the image is too dark, blurry, or ambiguous to tell.`;
+- "unsure": the image is too dark, blurry, or ambiguous to tell.
+
+IMPORTANT — these are NOT failures:
+- The printer's own hardware: wires, cables, ribbon cables, drive belts, gears, threaded rods, the metal frame, hoses, and the nozzle/hotend. These are not filament. Never call machine wiring "spaghetti" or "stringing".
+- A normal solid print, even if it is complex, dark, or made of many separate small parts on the bed.
+- A thin, sparse, or translucent first layer just starting on the bed.
+Only call it spaghetti when you see loose plastic strands that clearly are NOT part of the machine and do NOT form a solid object.`;
 
 export function failureUserPrompt(): string {
   return `Inspect this photo of a 3D print in progress.
