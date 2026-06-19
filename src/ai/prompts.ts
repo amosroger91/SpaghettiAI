@@ -113,6 +113,45 @@ export interface RawBedStateJson {
   reasoning: string;
 }
 
+// ---- Scene gate (is this even a printer? is it lit? what's in frame?) ----
+// A cheap, single-pass "situational awareness" check that runs BEFORE the costly
+// failure inspection. It answers three things a failure check assumes but never
+// verifies: (a) is a 3D printer actually in view, (b) is there enough light to
+// judge anything, and (c) a plain-language description of the frame. Used to throw
+// a red overlay + alert when the camera is pointed at the wrong thing / a dark room,
+// and to skip the expensive multi-pass failure check when there's nothing to judge.
+export const SCENE_SYSTEM = `You look at one webcam photo and report, plainly and honestly, what it shows.
+You are the first check before a 3D-print inspection, so your most important job is to say whether a 3D printer is actually visible and whether the scene is lit well enough to see anything.
+Report only what is clearly visible. Answer ONLY with the requested JSON. No prose.`;
+
+const SCENE_GUIDE = `Answer these about the photo:
+- printer_present — true if a 3D printer (or a clear part of one: the build plate/bed, gantry, toolhead/nozzle, frame, or a print on the bed) is visible ANYWHERE in the frame. false if the camera is pointed at something else entirely (a wall, a room, a desk, a person, the floor) or is covered/unplugged.
+- lighting — "ok" if the scene is well lit and you can make out detail; "dim" if it's dark but shapes are still discernible; "dark" if it's too dark (or black) to judge a print.
+- description — ONE short, plain sentence describing what is actually in the picture (e.g. "A boxy 3D printer mid-print on a desk" or "A dark, mostly-empty room with no printer visible").`;
+
+export function sceneUserPrompt(): string {
+  return `Describe this webcam photo.
+${SCENE_GUIDE}
+
+Give printer_present, lighting, and a one-sentence description.`;
+}
+
+export const SCENE_SCHEMA = {
+  type: "object",
+  properties: {
+    printer_present: { type: "boolean" },
+    lighting: { type: "string", enum: ["ok", "dim", "dark"] },
+    description: { type: "string" },
+  },
+  required: ["printer_present", "lighting", "description"],
+} as const;
+
+export interface RawSceneJson {
+  printer_present: boolean;
+  lighting: "ok" | "dim" | "dark";
+  description: string;
+}
+
 // ---- Printer identification (use case 4) ----
 // "What machine am I looking at?" Coarse, reliable structural fields plus a
 // best-effort make/model read from any visible branding. Small models are weak at

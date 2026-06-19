@@ -16,7 +16,7 @@ const CONFIG_FILE = process.env.PW_CONFIG || join(DATA_DIR === join(ROOT, "data"
 const DEFAULTS: AppConfig = {
   server: { port: 8787, host: "127.0.0.1" },
   cameras: [],
-  image: { maxSize: 1024, crop: null, normalize: true, grayscale: false },
+  image: { maxSize: 1024, crop: null, normalize: true, grayscale: false, enhance: true },
   ai: { provider: "ollama", baseUrl: "http://localhost:11434", model: "gemma3:4b", temperature: 0, numCtx: 4096 },
   check: { samples: 2, frames: 2, frameDelayMs: 4000, confidenceThreshold: 0.6, sampleTemperature: 0.6 },
   confirm: { enabled: false, models: [], samplesPerJuror: 1 },

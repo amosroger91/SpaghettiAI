@@ -18,9 +18,10 @@ import { prepareImage } from "../image/preprocess.js";
 import { runFailureCheck } from "../analysis/failureCheck.js";
 import { runBedStateCheck } from "../analysis/bedState.js";
 import { runPrinterDetection } from "../analysis/printerDetect.js";
+import { runSceneCheck } from "../analysis/scene.js";
 import { startTroubleshoot, verifyOutcome } from "../analysis/troubleshoot.js";
 import { AlertManager } from "../alerts/index.js";
-import type { Alert, BedStateResult, CheckResult } from "../types.js";
+import type { Alert, BedStateResult, CheckResult, SceneResult } from "../types.js";
 
 export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, ai: VisionProvider) {
   const app = express();
@@ -48,7 +49,7 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   };
   // Per-camera, per-operation busy flags so two cameras can run concurrently while a
   // single camera can't overlap its own checks.
-  const busy = { check: new Set<string>(), bed: new Set<string>(), printer: new Set<string>() };
+  const busy = { check: new Set<string>(), bed: new Set<string>(), printer: new Set<string>(), scene: new Set<string>() };
 
   // --- live event bus (SSE) for progress + alerts ---
   const bus = new EventEmitter();
@@ -98,6 +99,19 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
       ts: Date.now(),
     });
   };
+  const maybeAlertScene = (r: SceneResult) => {
+    if (r.status === "ok") return;
+    fire({
+      key: `scene:${r.cameraId}:${r.status}`,
+      level: "warning",
+      title:
+        r.status === "too_dark"
+          ? `Too dark to monitor — ${camName(r.cameraId)}`
+          : `No 3D printer in view — ${camName(r.cameraId)}`,
+      body: r.summary,
+      ts: Date.now(),
+    });
+  };
 
   app.get("/api/events", (req, res) => {
     res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
@@ -125,6 +139,7 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
         latest: store.latestCheck(c.id) ?? null,
         latestBedState: store.latestBedState(c.id) ?? null,
         latestPrinter: store.latestPrinterDetection(c.id) ?? null,
+        latestScene: store.latestScene(c.id) ?? null,
       })),
     );
   });
@@ -145,6 +160,7 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
       latest: store.latestCheck(defaultId()) ?? null,
       latestBedState: store.latestBedState(defaultId()) ?? null,
       latestPrinter: store.latestPrinterDetection(defaultId()) ?? null,
+      latestScene: store.latestScene(defaultId()) ?? null,
     });
   });
 
@@ -205,6 +221,30 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
 
   app.get("/api/bed-states", (req, res) =>
     res.json(store.listBedStates(50, req.query.camera ? String(req.query.camera) : undefined)),
+  );
+
+  // --- scene gate: printer present? enough light? what's in frame? ---
+  app.post("/api/scene", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
+    if (busy.scene.has(cam.id)) return res.status(409).json({ error: `a scene check is already running for ${cam.label}` });
+    busy.scene.add(cam.id);
+    emit("scene:start", { cameraId: cam.id });
+    try {
+      const result = await runSceneCheck(cam.source, ai, cfg, cam.id, (msg) => emit("scene:progress", { cameraId: cam.id, msg }));
+      emit("scene:done", { cameraId: cam.id, result });
+      maybeAlertScene(result);
+      res.json(result);
+    } catch (e) {
+      emit("scene:error", { cameraId: cam.id, error: (e as Error).message });
+      res.status(500).json({ error: (e as Error).message });
+    } finally {
+      busy.scene.delete(cam.id);
+    }
+  });
+
+  app.get("/api/scenes", (req, res) =>
+    res.json(store.listScenes(50, req.query.camera ? String(req.query.camera) : undefined)),
   );
 
   // --- use case 4: printer detection ---
@@ -375,13 +415,33 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
     }
   });
 
+  // --- OctoPrint webcam exposure: full copy-paste URLs (localhost + each LAN IP) ---
+  // OctoPrint usually runs on another machine, so the LAN IP is the one that works
+  // there; localhost is handy when OctoPrint shares this box. We hand back complete
+  // stream + snapshot URLs per camera so there's nothing to assemble by hand.
+  app.get("/api/webcam/info", (_req, res) => {
+    const port = cfg.server.port;
+    const hosts = ["localhost", ...lanIPv4()];
+    const cams = liveList().map((c) => ({
+      id: c.id,
+      label: c.label,
+      urls: hosts.map((host) => ({
+        host,
+        stream: `http://${host}:${port}/webcam?action=stream&camera=${encodeURIComponent(c.id)}`,
+        snapshot: `http://${host}:${port}/webcam?action=snapshot&camera=${encodeURIComponent(c.id)}`,
+      })),
+    }));
+    res.json({ enabled: cfg.webcam.enabled, port, hosts, cameras: cams });
+  });
+
   // --- "use your phone as a camera" ---
   // Candidate URLs the phone can open (HTTPS, since getUserMedia needs a secure
-  // context). One per LAN address; the dashboard renders the first as a QR code.
+  // context). LAN addresses first (what a phone can actually reach), then localhost
+  // for completeness; the dashboard renders a QR for each and lists them all.
   const phoneUrls = () => {
     const port = cfg.phone.httpsPort;
     const ips = lanIPv4();
-    return (ips.length ? ips : ["localhost"]).map((ip) => `https://${ip}:${port}/phone`);
+    return [...ips, "localhost"].map((ip) => `https://${ip}:${port}/phone`);
   };
 
   app.get("/api/phone/info", (_req, res) => {

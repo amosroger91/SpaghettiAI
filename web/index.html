@@ -79,8 +79,19 @@
         </div>
         <div class="frame">
           <img id="preview" alt="camera preview" />
+          <div id="previewOverlay" class="preview-overlay" hidden></div>
         </div>
         <p class="hint">This is the preprocessed frame exactly as the model sees it.</p>
+      </section>
+
+      <section class="panel scene">
+        <div class="panel-head">
+          <h2>What's in the picture?</h2>
+          <button id="sceneBtn" class="primary">Describe scene</button>
+        </div>
+        <p class="hint">Checks there's a 3D printer in view and enough light to monitor — and describes what it sees. A red overlay + alert fires if the camera is pointed away or the room is too dark.</p>
+        <div id="sceneProgress" class="progress"></div>
+        <div id="sceneResult" class="result empty">No reading yet.</div>
       </section>
 
       <section class="panel check">
@@ -129,7 +140,7 @@
     </main>
 
     <div id="nobedOverlay" class="nobed-overlay hidden">
-      <div class="nobed-msg">⛔ No bed detected<span id="nobedWhich"></span><small>Point the camera at the printer's bed, or check it's connected.</small></div>
+      <div class="nobed-msg">⛔ Attention needed<span id="nobedWhich"></span><small>Point the camera at the printer in good light. This clears automatically once it's back in view.</small></div>
     </div>
 
     <script src="/dashboard.js"></script>

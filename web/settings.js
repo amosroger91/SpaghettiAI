@@ -267,4 +267,29 @@ async function pullModel(model) {
   }
 }
 
+// ---- OctoPrint webcam URLs (full copy-paste links, localhost + network) ----
+async function loadWebcamUrls() {
+  const box = $("webcamUrls");
+  if (!box) return;
+  try {
+    const info = await (await fetch("/api/webcam/info")).json();
+    if (!info.cameras?.length) { box.textContent = "No cameras configured yet — add one above."; return; }
+    box.innerHTML = info.cameras.map((c) => `
+      <div class="urlcam">
+        <div class="urlcam-head"><b>${esc(c.label)}</b></div>
+        ${c.urls.map((u) => `
+          <div class="urlrow">
+            <span class="urltag">${u.host === "localhost" ? "this PC" : "network"}</span>
+            <code class="urlval">${esc(u.stream)}</code>
+            <button type="button" class="small copybtn" data-copy="${esc(u.stream)}">Copy</button>
+          </div>`).join("")}
+      </div>`).join("");
+    box.querySelectorAll(".copybtn").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(b.dataset.copy); const t = b.textContent; b.textContent = "Copied!"; setTimeout(() => (b.textContent = t), 1200); } catch {}
+      }));
+  } catch { box.textContent = "Could not load webcam URLs."; }
+}
+
 load();
+loadWebcamUrls();

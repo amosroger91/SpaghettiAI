@@ -2,13 +2,14 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA_DIR } from "../config.js";
-import type { BedStateResult, CheckResult, PrinterDetectionResult, TroubleshootSession } from "../types.js";
+import type { BedStateResult, CheckResult, PrinterDetectionResult, SceneResult, TroubleshootSession } from "../types.js";
 
 interface DbShape {
   checks: CheckResult[];
   sessions: TroubleshootSession[];
   bedStates: BedStateResult[];
   printers: PrinterDetectionResult[];
+  scenes: SceneResult[];
 }
 
 const SNAP_DIR = join(DATA_DIR, "snapshots");
@@ -18,7 +19,7 @@ const MAX_CHECKS = 200;
 // Tiny synchronous JSON store. No native deps, easy to inspect by hand. Fine for
 // a single-user local dashboard; swap for SQLite if history grows large.
 class Store {
-  private db: DbShape = { checks: [], sessions: [], bedStates: [], printers: [] };
+  private db: DbShape = { checks: [], sessions: [], bedStates: [], printers: [], scenes: [] };
 
   init() {
     mkdirSync(SNAP_DIR, { recursive: true });
@@ -33,6 +34,7 @@ class Store {
     this.db.sessions ??= [];
     this.db.bedStates ??= [];
     this.db.printers ??= [];
+    this.db.scenes ??= [];
   }
 
   private persist() {
@@ -90,6 +92,20 @@ class Store {
 
   latestPrinterDetection(cameraId?: string) {
     return byCamera(this.db.printers, cameraId)[0];
+  }
+
+  addScene(s: SceneResult) {
+    this.db.scenes.unshift(s);
+    if (this.db.scenes.length > MAX_CHECKS) this.db.scenes.length = MAX_CHECKS;
+    this.persist();
+  }
+
+  listScenes(limit = 50, cameraId?: string) {
+    return byCamera(this.db.scenes, cameraId).slice(0, limit);
+  }
+
+  latestScene(cameraId?: string) {
+    return byCamera(this.db.scenes, cameraId)[0];
   }
 
   addSession(s: TroubleshootSession) {

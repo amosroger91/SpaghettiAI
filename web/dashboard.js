@@ -48,10 +48,14 @@ function tileHtml(c) {
   return `
     <div class="cam" id="cam-${esc(c.id)}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="Select ${esc(c.label)}">
       <div class="cam-head"><b>${esc(c.label)}</b> <span class="muted">${esc(c.kind)}</span></div>
-      <div class="frame"><img class="cam-img" alt="${esc(c.label)} preview" /></div>
+      <div class="frame">
+        <img class="cam-img" alt="${esc(c.label)} preview" />
+        <div class="feed-overlay" data-role="overlay" hidden></div>
+      </div>
       <div class="cam-status">
         <span class="badge" data-role="health">health —</span>
         <span class="badge" data-role="bed">bed —</span>
+        <span class="badge" data-role="scene" hidden>scene —</span>
       </div>
       <div class="cam-printer muted"><span data-role="printer">printer —</span></div>
     </div>`;
@@ -70,6 +74,7 @@ async function loadCameras() {
     if (c.latest) renderHealthBadge(c.id, c.latest);
     if (c.latestBedState) renderBedBadge(c.id, c.latestBedState);
     if (c.latestPrinter) renderPrinterBadge(c.id, c.latestPrinter);
+    if (c.latestScene) renderSceneBadge(c.id, c.latestScene);
   });
   // Clicking (or keyboard-activating) a tile selects that camera.
   document.querySelectorAll(".cam").forEach((el) => {
@@ -92,18 +97,52 @@ function renderHealthBadge(id, r) {
   const [label, cls] = HEALTH[r.verdict] || ["—", ""];
   setBadge(id, "health", `${label} ${Math.round(r.confidence * 100)}%`, cls);
 }
-const noBed = {}; // cameraId -> true when no bed visible
-function renderBedBadge(id, r) {
-  if (r.bedVisible === false) { setBadge(id, "bed", "⛔ No bed", "failed"); noBed[id] = true; }
-  else { const [label, cls] = BED[r.state] || ["—", ""]; setBadge(id, "bed", label, cls); delete noBed[id]; }
-  updateNoBedOverlay();
+// Each camera can be "blocked" (a red, attention-needed state) for one reason at a
+// time: no bed visible, no printer in view (camera moved away), or too dark. The
+// state clears itself the moment a later reading comes back clean — so when you
+// point the camera back at the printer, the red overlay disappears on its own.
+const blocked = {}; // cameraId -> { reason, label, detail }
+const sceneByCam = {}; // cameraId -> latest SceneResult
+function setBlocked(id, reason, label, detail) {
+  if (reason) blocked[id] = { reason, label, detail: detail || "" };
+  else delete blocked[id];
+  paintTileOverlay(id);
+  updateBlockOverlay();
 }
-function updateNoBedOverlay() {
-  const ids = Object.keys(noBed);
+function renderBedBadge(id, r) {
+  if (r.bedVisible === false) { setBadge(id, "bed", "⛔ No bed", "failed"); setBlocked(id, "no_bed", "No print bed detected", r.summary); }
+  else { const [label, cls] = BED[r.state] || ["—", ""]; setBadge(id, "bed", label, cls); if (blocked[id]?.reason === "no_bed") setBlocked(id, null); }
+}
+const SCENE_BADGE = {
+  ok: ["👁️ Scene OK", "ok"],
+  no_printer: ["⛔ No printer", "failed"],
+  too_dark: ["🌑 Too dark", "failed"],
+};
+function renderSceneBadge(id, r) {
+  const [label, cls] = SCENE_BADGE[r.status] || ["scene —", ""];
+  const b = tile(id)?.querySelector('[data-role="scene"]');
+  if (b) { b.hidden = false; b.className = `badge ${cls}`; b.textContent = label; b.title = r.summary || ""; }
+  if (r.status === "no_printer") setBlocked(id, "no_printer", "No 3D printer in view", r.summary);
+  else if (r.status === "too_dark") setBlocked(id, "too_dark", "Too dark to monitor", r.summary);
+  else if (["no_printer", "too_dark"].includes(blocked[id]?.reason)) setBlocked(id, null);
+  sceneByCam[id] = r;
+  if (id === selectedId) paintPreviewOverlay();
+}
+// Paint the small status chip burned onto each camera tile's feed.
+function paintTileOverlay(id) {
+  const ov = tile(id)?.querySelector('[data-role="overlay"]');
+  if (!ov) return;
+  const b = blocked[id];
+  if (b) { ov.hidden = false; ov.className = "feed-overlay danger"; ov.innerHTML = `<b>⛔ ${esc(b.label)}</b>`; }
+  else { ov.hidden = true; ov.innerHTML = ""; }
+}
+function updateBlockOverlay() {
+  const ids = Object.keys(blocked);
   const ov = $("nobedOverlay");
+  if (!ov) return;
   if (ids.length) {
-    const names = ids.map((id) => cameras.find((c) => c.id === id)?.label || id);
-    $("nobedWhich").textContent = ` — ${names.join(", ")}`;
+    const lines = ids.map((id) => `${cameras.find((c) => c.id === id)?.label || id}: ${blocked[id].label}`);
+    $("nobedWhich").textContent = ` — ${lines.join(" · ")}`;
     ov.classList.remove("hidden");
   } else ov.classList.add("hidden");
 }
@@ -123,12 +162,15 @@ function selectCamera(id) {
   document.querySelectorAll(".cam").forEach((el) => el.classList.toggle("selected", el.dataset.id === id));
   $("selectedLabel").textContent = cam ? cam.label : id;
   // Reset progress lines; repopulate result panels from the camera's last-known results.
-  for (const p of ["checkProgress", "printerProgress", "bedProgress"]) $(p).textContent = "";
+  for (const p of ["checkProgress", "printerProgress", "bedProgress", "sceneProgress"]) $(p).textContent = "";
   $("tsResult").innerHTML = "";
   if (cam?.latest) renderCheck(cam.latest); else setEmpty("checkResult", "No check run yet.");
   if (cam?.latestPrinter) renderPrinter(cam.latestPrinter); else setEmpty("printerResult", "Not identified yet.");
   if (cam?.latestBedState) renderBed(cam.latestBedState); else setEmpty("bedResult", "No reading yet.");
+  const sc = sceneByCam[id] || cam?.latestScene;
+  if (sc) renderScene(sc); else setEmpty("sceneResult", "No reading yet.");
   refreshPreview();
+  paintPreviewOverlay();
 }
 function setSelectedDetailEmpty() {
   selectedId = null;
@@ -141,6 +183,30 @@ const setEmpty = (elId, msg) => { const el = $(elId); el.className = "result emp
 function refreshPreview() {
   if (!$("autorefresh").checked || !selectedId) return;
   $("preview").src = `/api/snapshot?camera=${encodeURIComponent(selectedId)}&t=${Date.now()}`;
+}
+// Sleek glass overlay on the big live view: verdict + confidence, scene status,
+// lighting, and a one-line description — everything we know, at a glance.
+function paintPreviewOverlay() {
+  const ov = $("previewOverlay");
+  if (!ov || !selectedId) return;
+  const cam = cameras.find((c) => c.id === selectedId);
+  const check = cam?.latest;
+  const scene = sceneByCam[selectedId] || cam?.latestScene;
+  const blk = blocked[selectedId];
+  const chips = [];
+  if (check) {
+    const [label, cls] = HEALTH[check.verdict] || ["—", ""];
+    chips.push(`<span class="ov-chip ${cls}">${esc(label)} · ${Math.round(check.confidence * 100)}%</span>`);
+  }
+  if (scene) {
+    const light = scene.lighting === "ok" ? "☀️ Good light" : scene.lighting === "dim" ? "🔅 Dim" : "🌑 Dark";
+    chips.push(`<span class="ov-chip ${scene.lighting === "ok" ? "" : "uncertain"}">${light}${scene.brightness != null ? ` ${Math.round(scene.brightness * 100)}%` : ""}</span>`);
+    chips.push(`<span class="ov-chip ${scene.printerPresent ? "ok" : "failed"}">${scene.printerPresent ? "🖨️ Printer in view" : "⛔ No printer"}</span>`);
+  }
+  const desc = scene?.description ? `<div class="ov-desc">${esc(scene.description)}</div>` : "";
+  ov.className = "preview-overlay" + (blk ? " danger" : "");
+  ov.innerHTML = chips.length || desc ? `<div class="ov-chips">${chips.join("")}</div>${desc}` : "";
+  ov.hidden = !(chips.length || desc);
 }
 $("preview").addEventListener("error", () => ($("preview").alt = "no camera frame — check the camera in Settings"));
 $("autorefresh").addEventListener("change", refreshPreview);
@@ -158,6 +224,17 @@ async function runCycle() {
   busy = true;
   $("cycleState").textContent = "Checking…";
   for (const c of cameras) {
+    // Scene gate first: if there's no printer in view or it's too dark, flag it
+    // (red overlay + alert server-side) and SKIP the costly bed + failure passes —
+    // no point asking a vision model to inspect a print that isn't there.
+    let gated = false;
+    try {
+      const scene = await postJSON(`/api/scene?camera=${encodeURIComponent(c.id)}`);
+      renderSceneBadge(c.id, scene);
+      gated = scene.status !== "ok";
+    } catch { /* scene check is best-effort; fall through to the full checks */ }
+    if (gated) continue;
+
     setBadge(c.id, "bed", "bed …", "");
     try { renderBedBadge(c.id, await postJSON(`/api/bed-state?camera=${encodeURIComponent(c.id)}`)); }
     catch { setBadge(c.id, "bed", "bed err", "failed"); }
@@ -314,6 +391,41 @@ function renderBed(r) {
 }
 
 // ========================================================================
+// Detail: scene gate ("what's in the picture / is there a printer / enough light")
+// ========================================================================
+const SCENE_VERDICT = { ok: ["✅ Looks good to monitor", "ok"], no_printer: ["⛔ No 3D printer in view", "failed"], too_dark: ["🌑 Too dark to monitor", "failed"] };
+$("sceneBtn").addEventListener("click", async () => {
+  if (!selectedId) return;
+  $("sceneBtn").disabled = true;
+  $("sceneProgress").textContent = "looking…";
+  $("sceneResult").className = "result empty";
+  $("sceneResult").textContent = "describing the scene…";
+  try {
+    const r = await postJSON(`/api/scene${camParam()}`);
+    renderScene(r);
+    renderSceneBadge(selectedId, r);
+  } catch (e) {
+    $("sceneResult").className = "result";
+    $("sceneResult").textContent = "error: " + e.message;
+  } finally {
+    $("sceneBtn").disabled = false;
+    $("sceneProgress").textContent = "";
+  }
+});
+function renderScene(r) {
+  const el = $("sceneResult");
+  el.className = "result";
+  const [label, cls] = SCENE_VERDICT[r.status] || ["—", ""];
+  const light = r.lighting === "ok" ? "Good" : r.lighting === "dim" ? "Dim" : "Dark";
+  el.innerHTML = `
+    <div class="verdict ${cls}">${label}</div>
+    <div>${esc(r.description || r.summary)}</div>
+    <div class="field"><b>Printer in view:</b> ${r.printerPresent ? "yes" : "no"}</div>
+    <div class="field"><b>Lighting:</b> ${light} (${Math.round((r.brightness ?? 0) * 100)}% brightness)</div>
+    <div class="thumbs"><img src="${r.snapshotPath}" /></div>`;
+}
+
+// ========================================================================
 // Detail: troubleshoot
 // ========================================================================
 $("tsBtn").addEventListener("click", async () => {
@@ -388,9 +500,16 @@ $("phoneToggle").addEventListener("click", async () => {
       $("phoneUrls").textContent = "Phone server is disabled (set phone.enabled in settings).";
       return;
     }
+    // A scannable QR + the literal URL for each address: the network (LAN) one is
+    // what a phone on Wi-Fi can reach; localhost is shown for completeness.
     $("phoneQr").src = `/api/phone/qr?url=${encodeURIComponent(info.urls[0])}&t=${Date.now()}`;
-    $("phoneUrls").innerHTML = "Or open on your phone: " +
-      info.urls.map((u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).join(" · ");
+    const isLocal = (u) => u.includes("localhost") || u.includes("127.0.0.1");
+    $("phoneUrls").innerHTML = info.urls.map((u) => `
+      <div class="qrcard">
+        <span class="urltag">${isLocal(u) ? "this PC" : "network"}</span>
+        <img class="qrmini" src="/api/phone/qr?url=${encodeURIComponent(u)}&t=${Date.now()}" alt="QR for ${u}" />
+        <a href="${u}" target="_blank" rel="noopener">${u}</a>
+      </div>`).join("");
   } catch {
     $("phoneUrls").textContent = "Could not load pairing info.";
   }

@@ -372,3 +372,50 @@ details.angle-tip li { margin: 3px 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* ===== Live-feed overlays (sleek glass HUD over the webcam image) ===== */
+.preview-overlay {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  background: rgba(10, 12, 20, 0.55); backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong); box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.preview-overlay[hidden] { display: none; }
+.preview-overlay.danger { border-color: var(--fail); box-shadow: 0 0 0 1px var(--fail), 0 0 30px -6px rgba(255,95,109,.55); }
+.ov-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-chip {
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); border: 1px solid var(--border-strong); color: #e7eaf2;
+}
+.ov-chip.ok { color: var(--ok); border-color: rgba(54,211,153,.5); background: rgba(54,211,153,.12); }
+.ov-chip.failed { color: var(--fail); border-color: rgba(255,95,109,.5); background: rgba(255,95,109,.12); }
+.ov-chip.uncertain { color: var(--warn); border-color: rgba(251,191,59,.5); background: rgba(251,191,59,.12); }
+.ov-desc { font-size: 13px; color: #c9cee0; line-height: 1.35; }
+
+/* Per-tile mini overlay (top-left chip on each camera in the grid) */
+.feed-overlay {
+  position: absolute; left: 8px; top: 8px; z-index: 2;
+  font-size: 12px; padding: 4px 8px; border-radius: 8px;
+  background: rgba(10,12,20,0.6); backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong); color: #fff;
+}
+.feed-overlay[hidden] { display: none; }
+.feed-overlay.danger { border-color: var(--fail); color: #fff; background: rgba(40,0,6,0.7); }
+
+/* ===== Full copy-paste URL lists (OctoPrint webcam + phone) ===== */
+.urls { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.urlcam-head { margin-bottom: 6px; }
+.urlrow { display: flex; align-items: center; gap: 8px; margin: 4px 0; flex-wrap: wrap; }
+.urltag {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px; color: var(--accent);
+  background: rgba(108,140,255,0.12); border: 1px solid rgba(108,140,255,0.35);
+}
+.urlval { font-size: 12.5px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 8px;
+  border: 1px solid var(--border); word-break: break-all; flex: 1 1 260px; }
+.copybtn { white-space: nowrap; }
+.qrcard { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px 14px 0 0; vertical-align: top; }
+.qrcard .qrmini { width: 132px; height: 132px; border-radius: 10px; background: #fff; padding: 6px; }
+.qrcard a { font-size: 12px; word-break: break-all; max-width: 160px; text-align: center; }

@@ -24,7 +24,7 @@ No cloud · no API keys · no images leave your machine (unless you opt into Gem
 Download and launch the latest prebuilt installer — paste into **PowerShell**:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.2/SpaghettiAI-Setup-1.0.2.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.2.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.3/SpaghettiAI-Setup-1.0.3.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.3.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
 ```
 
 > The `Tls12` prefix is needed on **Windows PowerShell 5.1** (its default TLS is too old for GitHub's download CDN); harmless on PowerShell 7+.
@@ -42,7 +42,8 @@ Prefer to build from source or run on macOS/Linux/Docker? See [Quick start](#qui
 
 | | |
 |---|---|
-| 🔎 **"Has this print failed?"** | An on-demand health check with a real **double-check**: it votes across multiple model passes *and* multiple frames seconds apart, so glare, a moving nozzle, or one bad guess don't trigger false alarms. When a failure *is* suspected, an optional **second-opinion jury** of other local models votes to confirm it — or veto a false alarm — before you're alerted. |
+| 🔎 **"Has this print failed?"** | An on-demand health check with a real **double-check**: it votes across multiple model passes *and* multiple frames seconds apart, so glare, a moving nozzle, or one bad guess don't trigger false alarms. When a failure *is* suspected, an optional **second-opinion jury** of other local models votes to confirm it — or veto a false alarm — before you're alerted. Frames are run through **algorithmic enhancement** first (denoise → local contrast → sharpen), which recovers strand detail on dark/cheap webcams — measurably catching more failures (see [Accuracy & speed](#accuracy--speed)). |
+| 👁️ **Scene awareness** | A fast **gate** that runs before the costly inspection: is a **3D printer actually in view**, is there **enough light**, and a plain-language **description** of the frame. If the camera is pointed away (or you moved it) or the room is too dark, you get a **red overlay + alert** — and it **clears itself** the moment the printer is back in view. It also **skips** the expensive failure passes when there's nothing to inspect, saving work on weak hardware. |
 | 🛠️ **"Why did it fail?"** | The model diagnoses your symptom, proposes concrete changes each with a **visually verifiable** success signal, then watches a later snapshot (before vs. after) to confirm the fix actually worked. |
 | 🟢 **"What's on the bed?"** | A one-click read of the printer's state — **empty/clean**, **printing**, **complete** (finished part ready to remove), or **failed** — voted across passes the same way. |
 | 🖨️ **"What printer is this?"** | Identifies the machine in view: motion style (bed-slinger / CoreXY / delta) and enclosure, plus make/model. It **reads the branding off the machine and looks it up online** to name the exact printer instead of guessing (e.g. `ACE GEN2` → Anycubic Kobra X). |
@@ -441,6 +442,37 @@ page, and locking down network exposure — see the full
 > who can reach it can trigger checks, read snapshots, and change config. See
 > [`docs/PRIVACY.md`](docs/PRIVACY.md#network-exposure) and the hardening roadmap.
 
+## Accuracy & speed
+
+Two algorithmic upgrades make the **same local model measurably better and faster** — no
+bigger model, no extra passes — verified with the offline eval harness, not assumed.
+
+**Frame enhancement (higher recall on bad webcams).** Cheap printer cams are dark, noisy,
+and low-res, and a small vision model can't recover detail that isn't there. Every frame is
+now run through a classical pipeline — **median denoise → CLAHE local contrast → unsharp** —
+before the model sees it (`image.enhance`, on by default). On a simulated bad-webcam set
+(the labeled fixtures downscaled, darkened, blurred, and JPEG-crushed):
+
+| Frame path | Accuracy | Recall (failures caught) | Precision |
+|---|---|---|---|
+| Baseline preprocessing | 77.3% | 55% (6/11) | 100% |
+| **+ enhancement** | **86.4%** | **73% (8/11)** | 100% |
+
+**+9 points accuracy, +18 points recall, zero new false alarms** — it recovers real failures
+that otherwise washed out, without ever crying wolf. (On already-clean frames the model is
+100% either way; the win is on the marginal frames that matter in the real world.)
+
+**Run at half resolution (≈40% faster on weak hardware).** Vision-model cost scales with the
+image's long edge. At `image.maxSize: 512` the model stays **100%** on clean fixtures while
+running **~1.6× faster** than 1024 (measured **12.4s vs 19.8s/frame** on a CPU-only box) — a
+big deal when each monitoring cycle touches several cameras. Drop `image.maxSize` for a near-
+free speedup; combine with `check.samples: 1` and the **scene gate** (which skips inspection
+when no printer is in view) to cut even more work.
+
+Reproduce both with `npx tsx test/hard-eval.ts` (set `PW_MODE=degraded|enhanced`,
+`PW_MAXSIZE=…`). The classical signals also have fast, model-free unit tests
+(`npm test`).
+
 ## Tuning & accuracy
 
 A 4B model can do this reliably because the work is shaped to its strengths — and that's
@@ -455,8 +487,9 @@ PW_EVAL_SAMPLES=3 npm run eval   # also exercise the self-consistency vote
 
 The levers that make small models accurate (all in `config.json`):
 
-- **Preprocessing** — downscale (`image.maxSize`), optional bed crop (`image.crop`), and
-  contrast normalize (`image.normalize`) so the model sees a clean, relevant frame.
+- **Preprocessing** — downscale (`image.maxSize`), optional bed crop (`image.crop`),
+  contrast normalize (`image.normalize`), and **algorithmic enhancement** (`image.enhance`:
+  denoise + local contrast + sharpen) so the model sees a clean, relevant, detail-rich frame.
 - **Structured output** — the model fills a fixed JSON schema via Ollama's `format`
   instead of writing prose.
 - **Decomposition** — explicit per-failure-mode questions beat one vague "is it wrong?".

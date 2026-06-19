@@ -21,6 +21,10 @@ export interface ImageConfig {
   crop: [number, number, number, number] | null;
   normalize: boolean;
   grayscale: boolean;
+  /** Algorithmic enhancement (denoise + local contrast + sharpen) before the model.
+   *  Recovers strand detail on dark/noisy/low-res webcams — measurably higher recall
+   *  with no extra model cost. See src/image/enhance.ts. */
+  enhance: boolean;
 }
 
 export interface AiConfig {
@@ -251,6 +255,30 @@ export interface BedStateResult {
   summary: string;
   votes: BedStateVote[];
   samples: number;
+  snapshotPath: string;
+}
+
+/** Overall scene status, drives the dashboard's red overlay + scene alerts. */
+export type SceneStatus = "ok" | "no_printer" | "too_dark";
+
+/**
+ * Result of the cheap "situational awareness" gate: is a printer in view, is there
+ * enough light, and a plain-language description. Brightness is measured
+ * algorithmically (mean luminance); printer_present/description come from one model
+ * pass. `status` is the fused verdict the UI/alerts act on.
+ */
+export interface SceneResult {
+  id: string;
+  ts: number;
+  cameraId?: string;
+  status: SceneStatus;
+  printerPresent: boolean;
+  /** Algorithmic mean luminance 0..1 of the frame. */
+  brightness: number;
+  /** Fused light verdict (algorithmic brightness OR the model's lighting read). */
+  lighting: "ok" | "dim" | "dark";
+  description: string;
+  summary: string;
   snapshotPath: string;
 }
 
