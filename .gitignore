@@ -12,3 +12,6 @@ test/pool/
 test/pool_healthy/
 test/sheet*.png
 test/eval-results.json
+
+# headless screenshot scratch
+.chrome-tmp/

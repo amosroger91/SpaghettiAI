@@ -1,13 +1,13 @@
 {
-  "name": "printjob-llm-webcam-monitor",
+  "name": "spaghetti-ai",
   "version": "0.1.0",
-  "description": "Watches a webcam pointed at a 3D printer and uses a local vision model to detect and troubleshoot print failures.",
+  "description": "SpaghettiAI — point a webcam at your 3D printer and let a local vision model catch failed prints (spaghetti), read the bed, identify the printer, and alert you.",
   "type": "module",
   "main": "electron/main.cjs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/amosroger91/printjob-llm-webcam-monitor.git"
+    "url": "https://github.com/amosroger91/SpaghettiAI.git"
   },
   "keywords": [
     "3d-printing",
@@ -55,8 +55,8 @@
     "typescript": "^5.5.0"
   },
   "build": {
-    "appId": "com.amosroger91.printwatch",
-    "productName": "print-watch",
+    "appId": "com.amosroger91.spaghettiai",
+    "productName": "SpaghettiAI",
     "files": ["dist/**/*", "web/**/*", "electron/**/*", "scripts/ensure-ollama.mjs", "config.json", "package.json", "node_modules/**/*"],
     "asarUnpack": ["scripts/**/*"],
     "extraMetadata": { "main": "electron/main.cjs" },

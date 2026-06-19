@@ -55,7 +55,7 @@ export class PrintWatchClient {
     try {
       await this.get("/api/status");
     } catch (e) {
-      throw new Error(`cannot reach print-watch at ${this.base} — is it running? (${(e as Error).message})`);
+      throw new Error(`cannot reach SpaghettiAI at ${this.base} — is it running? (${(e as Error).message})`);
     }
   }
 }

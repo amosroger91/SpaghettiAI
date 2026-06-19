@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "print-watch API",
+    "title": "SpaghettiAI API",
     "version": "0.1.0",
-    "description": "Local API for the print-watch 3D-print webcam monitor. All inference runs on a local Ollama model; the only outbound calls are the optional printer web-lookup (text only) and alert delivery (Slack/Discord).",
+    "description": "Local API for SpaghettiAI, the 3D-print webcam monitor. All inference runs on a local Ollama model; the only outbound calls are the optional printer web-lookup (text only) and alert delivery (Slack/Discord).",
     "license": { "name": "MIT" }
   },
   "servers": [{ "url": "/", "description": "This print-watch instance" }],

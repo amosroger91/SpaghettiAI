@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🖨️ printjob-llm-webcam-monitor
+# 🍝 SpaghettiAI
 
-**Point a webcam at your 3D printer and let a local vision model catch failures — and help you fix them.**
+**Point a webcam at your 3D printer and let a local vision model catch the spaghetti — and help you fix it.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-green.svg)](https://nodejs.org)
@@ -49,8 +49,8 @@ Run it however you like: **`npm run dev`**, a one-click **desktop app** (Electro
 ## Quick start
 
 ```bash
-git clone https://github.com/amosroger91/printjob-llm-webcam-monitor.git
-cd printjob-llm-webcam-monitor
+git clone https://github.com/amosroger91/SpaghettiAI.git
+cd SpaghettiAI
 npm install
 npm run setup    # installs Ollama if needed, starts it, pulls the vision model
 npm run dev
@@ -98,7 +98,7 @@ types freely**. Each entry has an `id` (used in the API as `?camera=id`), a `lab
 
 ### USB webcam on the host PC
 
-For a webcam plugged straight into the machine running print-watch, set `camera.type`
+For a webcam plugged straight into the machine running SpaghettiAI, set `camera.type`
 to `usb` and `camera.usbDevice` to the device's `ffmpeg` name. Frames are grabbed with
 [`ffmpeg`](https://ffmpeg.org), so it must be installed (`winget install Gyan.FFmpeg`,
 `brew install ffmpeg`, or your distro's package).
@@ -156,14 +156,14 @@ PW_DISCORD_WEBHOOK="https://discord.com/api/webhooks/…" npm run dev
 
 ## Feed OctoPrint
 
-Got a USB webcam on the print-watch machine and want OctoPrint (often on a different Pi) to
-use it? print-watch can re-serve any camera in the **mjpg-streamer format OctoPrint expects**.
+Got a USB webcam on the SpaghettiAI machine and want OctoPrint (often on a different Pi) to
+use it? SpaghettiAI can re-serve any camera in the **mjpg-streamer format OctoPrint expects**.
 In OctoPrint → *Settings → Webcam & Timelapse*:
 
 | OctoPrint field | Set to                                                        |
 |-----------------|---------------------------------------------------------------|
-| Stream URL      | `http://<print-watch-host>:8787/webcam?action=stream&camera=kobra`  |
-| Snapshot URL    | `http://<print-watch-host>:8787/webcam?action=snapshot&camera=kobra` |
+| Stream URL      | `http://<SpaghettiAI-host>:8787/webcam?action=stream&camera=kobra`  |
+| Snapshot URL    | `http://<SpaghettiAI-host>:8787/webcam?action=snapshot&camera=kobra` |
 
 Serves the full-resolution camera frame (not the model-downscaled one). Tune the frame rate
 with `webcam.fps`, or turn the whole thing off with `webcam.enabled: false`.
@@ -188,7 +188,7 @@ install location.
 
 > Building the installer on Windows needs **Developer Mode on** (or an elevated shell) — that's
 > an [electron-builder requirement](https://www.electron.build/) for unpacking its signing
-> tools, not a print-watch one. The packaged app itself is in `release/win-unpacked/`.
+> tools, not a SpaghettiAI one. The packaged app itself is in `release/win-unpacked/`.
 
 **3 · Docker** — best for a headless box watching lots of network cameras. Ollama runs on
 the host; the container talks to it over `host.docker.internal`:
@@ -203,7 +203,7 @@ A fully self-contained stack (Ollama in a container too) is included commented-o
 
 ## MCP server
 
-print-watch ships an optional **[MCP](https://modelcontextprotocol.io) server** so an AI
+SpaghettiAI ships an optional **[MCP](https://modelcontextprotocol.io) server** so an AI
 assistant (Claude Desktop / Claude Code / any MCP client) can drive it with tools —
 *"check printer 2", "what's on the bed?", "show me a snapshot", "send a test alert"*.
 
@@ -213,23 +213,23 @@ It's **off by default**. Enable it, then run it over stdio:
 PW_MCP_ENABLED=true npm run mcp     # or set mcp.enabled: true in config.json
 ```
 
-It proxies to a running print-watch server (start `npm run dev` too), exposing 10 tools:
+It proxies to a running SpaghettiAI server (start `npm run dev` too), exposing 10 tools:
 `list_cameras`, `get_status`, `get_camera_snapshot`, `check_print`, `get_bed_state`,
 `identify_printer`, `troubleshoot`, `recent_checks`, `alerts_status`, `send_test_alert`.
 
 Register it once with **Claude Code** so every new session has it:
 
 ```bash
-claude mcp add print-watch -s user -e PW_MCP_ENABLED=true -- node /abs/path/dist/mcp/stdio.js
+claude mcp add SpaghettiAI -s user -e PW_MCP_ENABLED=true -- node /abs/path/dist/mcp/stdio.js
 ```
 
 Or add to a **Claude Desktop** `claude_desktop_config.json`:
 
 ```jsonc
 { "mcpServers": {
-  "print-watch": {
+  "SpaghettiAI": {
     "command": "node",
-    "args": ["/abs/path/printjob-llm-webcam-monitor/dist/mcp/stdio.js"],
+    "args": ["/abs/path/SpaghettiAI/dist/mcp/stdio.js"],
     "env": { "PW_MCP_ENABLED": "true" }
   }
 } }

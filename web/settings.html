@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SpaghettiAI · settings</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🍝 SpaghettiAI <span class="subtitle">· settings</span></h1>
+      <nav class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/monitor">Monitor</a>
+        <a href="/settings" class="active">Settings</a>
+        <a href="/docs">API docs</a>
+      </nav>
+    </header>
+
+    <main class="settings">
+      <p class="hint">Everything here is optional — SpaghettiAI runs on sensible defaults. These
+        settings are saved to <code>config.json</code> for you; env vars and the file are only
+        needed for headless/API use.</p>
+
+      <section class="panel">
+        <h2>Cameras</h2>
+        <div id="cameras"></div>
+        <button id="addCam" class="small">+ Add camera</button>
+        <p class="hint">Types: <b>usb</b> (set device, e.g. <code>video=USB 2.0 Camera</code>) ·
+          <b>http-snapshot</b>/<b>mjpeg</b> (set URL) · <b>folder</b> (set path). Camera changes need a restart.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Vision model</h2>
+        <div class="grid2">
+          <label>Ollama model <input id="ai_model" /></label>
+          <label>Ollama URL <input id="ai_baseUrl" /></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Failure check</h2>
+        <div class="grid2">
+          <label>Samples / frame <input id="check_samples" type="number" min="1" /></label>
+          <label>Frames <input id="check_frames" type="number" min="1" /></label>
+          <label>Frame delay (ms) <input id="check_frameDelayMs" type="number" min="0" /></label>
+          <label>Confidence threshold <input id="check_confidenceThreshold" type="number" step="0.05" min="0" max="1" /></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Printer detection</h2>
+        <label class="chk"><input type="checkbox" id="printer_webLookup" /> Look the on-machine text up online (DuckDuckGo) to identify make/model</label>
+      </section>
+
+      <section class="panel">
+        <h2>OctoPrint webcam server</h2>
+        <label class="chk"><input type="checkbox" id="webcam_enabled" /> Expose cameras at <code>/webcam?action=stream</code> (mjpg-streamer style)</label>
+        <label>Stream FPS <input id="webcam_fps" type="number" min="1" max="30" style="width:80px" /></label>
+      </section>
+
+      <section class="panel">
+        <h2>Alerts</h2>
+        <label class="chk"><input type="checkbox" id="alerts_enabled" /> Enable alerts</label>
+        <label class="chk"><input type="checkbox" id="alerts_notifyUncertain" /> Also alert on <i>uncertain</i> verdicts</label>
+        <label>Cooldown (min) <input id="alerts_cooldownMinutes" type="number" min="0" style="width:80px" /></label>
+        <div id="channels"></div>
+        <p class="hint">Leave a secret field blank or showing <code>••••••</code> to keep the stored value.
+          You can also set tokens via env vars (see README).</p>
+      </section>
+
+      <div class="saverow">
+        <button id="save" class="primary">Save settings</button>
+        <span id="saveMsg" class="hint"></span>
+      </div>
+    </main>
+
+    <script src="/settings.js"></script>
+  </body>
+</html>

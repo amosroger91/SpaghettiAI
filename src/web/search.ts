@@ -6,7 +6,7 @@ import type { WebSource } from "../types.js";
 // narrow regexes; if its markup ever changes this fails soft (returns []), and the
 // caller falls back to the vision-only guess.
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) print-watch/0.1";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SpaghettiAI/0.1";
 
 export async function ddgSearch(
   query: string,

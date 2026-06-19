@@ -69,7 +69,7 @@ function createWindow(ready) {
   const win = new BrowserWindow({
     width: 1200,
     height: 920,
-    title: "print-watch",
+    title: "SpaghettiAI",
     backgroundColor: "#0f1115",
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false },

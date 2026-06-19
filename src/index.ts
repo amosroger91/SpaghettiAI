@@ -13,7 +13,7 @@ async function main() {
 
   const { port, host } = config.server;
   app.listen(port, host, async () => {
-    console.log(`\n  print-watch  →  http://${host}:${port}`);
+    console.log(`\n  🍝 SpaghettiAI  →  http://${host}:${port}`);
     console.log(`  cameras: ${cameras.size}`);
     for (const c of cameras.values()) console.log(`    • ${c.id} (${c.label}) — ${c.source.describe()}`);
     const health = await ai.health();

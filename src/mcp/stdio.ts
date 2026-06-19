@@ -13,14 +13,14 @@ import { PrintWatchClient } from "./client.js";
 
 if (!config.mcp.enabled) {
   console.error(
-    "print-watch MCP server is disabled. Enable it with `mcp.enabled: true` in config.json " +
+    "SpaghettiAI MCP server is disabled. Enable it with `mcp.enabled: true` in config.json " +
       "or PW_MCP_ENABLED=true, then run `npm run mcp`.",
   );
   process.exit(1);
 }
 
 const client = new PrintWatchClient(config.mcp.target);
-const server = new McpServer({ name: "print-watch", version: "0.1.0" });
+const server = new McpServer({ name: "spaghetti-ai", version: "0.1.0" });
 
 type Content = { content: { type: "text"; text: string }[]; isError?: boolean };
 const ok = (data: unknown): Content => ({
@@ -142,4 +142,4 @@ server.tool("send_test_alert", "Send a test alert to every ready Slack/Discord c
 await client.ping().catch((e) => console.error(`warning: ${(e as Error).message}`));
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error(`print-watch MCP server ready (target ${config.mcp.target}) — 10 tools exposed.`);
+console.error(`SpaghettiAI MCP server ready (target ${config.mcp.target}) — 10 tools exposed.`);

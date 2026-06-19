@@ -117,7 +117,7 @@ async function main() {
     process.exit(1);
   }
 
-  log("Setup complete — print-watch is ready to use. 🎉");
+  log("Setup complete — SpaghettiAI is ready to use. 🍝");
 }
 
 main().catch((e) => {

@@ -2,7 +2,7 @@ import express from "express";
 import type { Request } from "express";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
-import { ROOT } from "../config.js";
+import { ROOT, publicConfig, saveConfig } from "../config.js";
 import type { AppConfig } from "../types.js";
 import type { CameraEntry } from "../capture/index.js";
 import type { VisionProvider } from "../ai/provider.js";
@@ -269,10 +269,11 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   // --- optional mjpg-streamer-compatible webcam server (feed a USB cam into OctoPrint) ---
   // OctoPrint expects ?action=snapshot (one JPEG) and ?action=stream (multipart MJPEG).
   // We serve the RAW camera frame here (not the model-downscaled one) so it's full quality.
-  if (cfg.webcam.enabled) {
-    const frameDelay = Math.max(50, Math.round(1000 / Math.max(1, cfg.webcam.fps)));
-
+  // Always registered; gated on cfg.webcam.enabled live so the GUI can toggle it.
+  {
     app.get(["/webcam", "/webcam/"], async (req, res) => {
+      if (!cfg.webcam.enabled) return res.status(404).json({ error: "webcam server disabled" });
+      const frameDelay = Math.max(50, Math.round(1000 / Math.max(1, cfg.webcam.fps)));
       const cam = resolve(req);
       if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
       const action = String(req.query.action ?? "snapshot");
@@ -317,9 +318,22 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
     });
   }
 
+  // --- configuration (GUI / API) ---
+  app.get("/api/config", (_req, res) => res.json(publicConfig()));
+  app.post("/api/config", (req, res) => {
+    try {
+      const result = saveConfig(req.body ?? {});
+      emit("config:saved", result);
+      res.json({ ok: true, ...result, config: publicConfig() });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  });
+
   // --- convenience routes for the extra pages ---
   app.get("/monitor", (_req, res) => res.sendFile(join(ROOT, "web", "monitor.html")));
   app.get("/docs", (_req, res) => res.sendFile(join(ROOT, "web", "docs.html")));
+  app.get("/settings", (_req, res) => res.sendFile(join(ROOT, "web", "settings.html")));
 
   // --- static: snapshots + dashboard (also serves openapi.json) ---
   app.use("/snapshots", express.static(store.snapshotDir(), { maxAge: 0 }));
