@@ -7,6 +7,8 @@ const postJSON = async (url) => {
   return j;
 };
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Static mode (?shot): load once, no SSE / live intervals — lets headless capture settle.
+const STATIC = location.search.includes("shot");
 
 function logLine(msg) {
   const d = document.createElement("div");
@@ -49,7 +51,7 @@ async function loadCameras() {
     const refresh = () => (img.src = `/api/snapshot?camera=${encodeURIComponent(c.id)}&t=${Date.now()}`);
     img.addEventListener("error", () => (img.alt = "no frame"));
     refresh();
-    camPreviewTimers.set(c.id, setInterval(refresh, 3000));
+    if (!STATIC) camPreviewTimers.set(c.id, setInterval(refresh, 3000));
     if (c.latest) renderHealth(c.id, c.latest);
     if (c.latestBedState) renderBed(c.id, c.latestBedState);
     if (c.latestPrinter) renderPrinter(c.id, c.latestPrinter);
@@ -205,19 +207,21 @@ $("testAlertBtn").addEventListener("click", async () => {
 });
 
 // ---------- SSE: route progress + results to the right tile ----------
-const es = new EventSource("/api/events");
-es.onmessage = (e) => {
-  const evt = JSON.parse(e.data);
-  const d = evt.data || {};
-  switch (evt.type) {
-    case "check:progress": if (d.cameraId) setBadge(d.cameraId, "health", "health …", ""); break;
-    case "bed:progress": if (d.cameraId) setBadge(d.cameraId, "bed", "bed …", ""); break;
-    case "check:done": if (d.result) renderHealth(d.cameraId, d.result); break;
-    case "bed:done": if (d.result) renderBed(d.cameraId, d.result); break;
-    case "alert:sent": (d.results || []).forEach((r) => logLine(`alert → ${r.channel}: ${r.ok ? "sent" : "FAIL " + r.detail}`)); break;
-    case "alert:error": logLine(`alert error: ${d.error}`); break;
-  }
-};
+if (!STATIC) {
+  const es = new EventSource("/api/events");
+  es.onmessage = (e) => {
+    const evt = JSON.parse(e.data);
+    const d = evt.data || {};
+    switch (evt.type) {
+      case "check:progress": if (d.cameraId) setBadge(d.cameraId, "health", "health …", ""); break;
+      case "bed:progress": if (d.cameraId) setBadge(d.cameraId, "bed", "bed …", ""); break;
+      case "check:done": if (d.result) renderHealth(d.cameraId, d.result); break;
+      case "bed:done": if (d.result) renderBed(d.cameraId, d.result); break;
+      case "alert:sent": (d.results || []).forEach((r) => logLine(`alert → ${r.channel}: ${r.ok ? "sent" : "FAIL " + r.detail}`)); break;
+      case "alert:error": logLine(`alert error: ${d.error}`); break;
+    }
+  };
+}
 
 loadCameras().catch((e) => logLine("failed to load cameras: " + e.message));
 loadStatus();

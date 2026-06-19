@@ -9,7 +9,11 @@
 [![LLM: Ollama (local)](https://img.shields.io/badge/LLM-Ollama%20(local)-black.svg)](https://ollama.com)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](CONTRIBUTING.md)
 
-No cloud · no API keys · no images leave your machine.
+No cloud · no API keys · no images leave your machine (unless you opt into Gemini).
+
+<br>
+
+<img src="docs/monitor.png" alt="SpaghettiAI live monitor — streaming a camera with health and bed-state badges" width="840">
 
 </div>
 
