@@ -30,6 +30,18 @@
         <p class="hint">This is the preprocessed frame exactly as the model sees it.</p>
       </section>
 
+      <section class="panel phone">
+        <div class="panel-head">
+          <h2>📱 Use your phone as a camera</h2>
+          <button id="phoneToggle" class="primary">Show QR</button>
+        </div>
+        <div id="phonePair" hidden>
+          <p class="hint">Scan with your phone, accept the one-time “not secure” warning (self-signed), then tap <b>Start streaming</b>. Your phone shows up as a camera here.</p>
+          <div class="frame" style="text-align:center"><img id="phoneQr" alt="phone pairing QR" style="max-width:240px" /></div>
+          <div id="phoneUrls" class="hint"></div>
+        </div>
+      </section>
+
       <section class="panel check">
         <div class="panel-head">
           <h2>Has this print failed?</h2>

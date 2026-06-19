@@ -14,6 +14,29 @@ $("autorefresh").addEventListener("change", refreshPreview);
 previewTimer = setInterval(refreshPreview, 5000);
 refreshPreview();
 
+// ---------- phone pairing ----------
+$("phoneToggle").addEventListener("click", async () => {
+  const box = $("phonePair");
+  const showing = !box.hidden;
+  box.hidden = showing;
+  $("phoneToggle").textContent = showing ? "Show QR" : "Hide QR";
+  if (showing) return;
+  try {
+    const info = await (await fetch("/api/phone/info")).json();
+    if (!info.enabled || !info.urls.length) {
+      $("phoneUrls").textContent = "Phone server is disabled (set phone.enabled in settings).";
+      return;
+    }
+    // QR encodes the first LAN URL; list them all as tappable links too.
+    $("phoneQr").src = `/api/phone/qr?url=${encodeURIComponent(info.urls[0])}&t=${Date.now()}`;
+    $("phoneUrls").innerHTML =
+      "Or open on your phone: " +
+      info.urls.map((u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).join(" · ");
+  } catch {
+    $("phoneUrls").textContent = "Could not load pairing info.";
+  }
+});
+
 // ---------- status ----------
 async function loadStatus() {
   try {
@@ -56,6 +79,8 @@ es.onmessage = (e) => {
     case "ts:diagnosed": logLine(`diagnosis ready (${evt.data.suggestions.length} suggestions)`); break;
     case "ts:verifying": logLine("verifying outcome…"); break;
     case "ts:verified": logLine(`verification: ${evt.data.observations.at(-1)?.verdict}`); break;
+    case "phone:paired": logLine(`📱 phone ${evt.data.reconnect ? "reconnected" : "paired"}: ${evt.data.label}`); break;
+    case "phone:unpaired": logLine(`📱 phone disconnected: ${evt.data.cameraId}`); break;
   }
 };
 
