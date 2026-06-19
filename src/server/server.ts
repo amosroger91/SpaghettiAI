@@ -19,6 +19,7 @@ import { runFailureCheck } from "../analysis/failureCheck.js";
 import { runBedStateCheck } from "../analysis/bedState.js";
 import { runPrinterDetection } from "../analysis/printerDetect.js";
 import { runSceneCheck } from "../analysis/scene.js";
+import { bakeOverlay, type OverlayInfo } from "../image/overlay.js";
 import { startTroubleshoot, verifyOutcome } from "../analysis/troubleshoot.js";
 import { AlertManager } from "../alerts/index.js";
 import type { Alert, BedStateResult, CheckResult, SceneResult } from "../types.js";
@@ -333,6 +334,24 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   // We serve the RAW camera frame here (not the model-downscaled one) so it's full quality.
   // Always registered; gated on cfg.webcam.enabled live so the GUI can toggle it.
   {
+    // Latest-known status for a camera, rendered into the baked overlay banner.
+    const overlayInfoFor = (camId: string, label: string): OverlayInfo => {
+      const scene = store.latestScene(camId);
+      if (scene && scene.status !== "ok") {
+        return { label, tone: "fail", status: scene.status === "too_dark" ? "TOO DARK" : "NO PRINTER" };
+      }
+      const check = store.latestCheck(camId);
+      if (check) {
+        const pct = Math.round(check.confidence * 100);
+        if (check.verdict === "failed") return { label, tone: "fail", status: `FAILURE ${pct}%` };
+        if (check.verdict === "uncertain") return { label, tone: "warn", status: `Uncertain ${pct}%` };
+        return { label, tone: "ok", status: `Healthy ${pct}%` };
+      }
+      return { label, tone: "muted", status: "Monitoring…" };
+    };
+    const withOverlay = async (camId: string, label: string, frame: Buffer): Promise<Buffer> =>
+      cfg.webcam.overlay ? bakeOverlay(frame, overlayInfoFor(camId, label)) : frame;
+
     app.get(["/webcam", "/webcam/"], async (req, res) => {
       if (!cfg.webcam.enabled) return res.status(404).json({ error: "webcam server disabled" });
       const frameDelay = Math.max(50, Math.round(1000 / Math.max(1, cfg.webcam.fps)));
@@ -342,7 +361,7 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
 
       if (action === "snapshot") {
         try {
-          const frame = await cam.source.grab();
+          const frame = await withOverlay(cam.id, cam.label, await cam.source.grab());
           res.set("Content-Type", "image/jpeg").set("Cache-Control", "no-store").send(frame);
         } catch (e) {
           res.status(502).json({ error: (e as Error).message });
@@ -362,7 +381,7 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
         req.on("close", () => (alive = false));
         while (alive && !res.writableEnded) {
           try {
-            const frame = await cam.source.grab();
+            const frame = await withOverlay(cam.id, cam.label, await cam.source.grab());
             if (!alive) break;
             res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
             res.write(frame);

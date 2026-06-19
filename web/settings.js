@@ -42,6 +42,7 @@ async function load() {
   $("printer_webLookup").checked = !!cfg.printer?.webLookup;
   $("webcam_enabled").checked = !!cfg.webcam?.enabled;
   $("webcam_fps").value = cfg.webcam?.fps ?? 5;
+  $("webcam_overlay").checked = !!cfg.webcam?.overlay;
   $("alerts_enabled").checked = !!cfg.alerts?.enabled;
   $("alerts_notifyUncertain").checked = !!cfg.alerts?.notifyUncertain;
   $("alerts_cooldownMinutes").value = cfg.alerts?.cooldownMinutes ?? 15;
@@ -171,7 +172,7 @@ $("save").addEventListener("click", async () => {
       confidenceThreshold: Number($("check_confidenceThreshold").value),
     },
     printer: { webLookup: $("printer_webLookup").checked },
-    webcam: { enabled: $("webcam_enabled").checked, fps: Number($("webcam_fps").value) },
+    webcam: { enabled: $("webcam_enabled").checked, fps: Number($("webcam_fps").value), overlay: $("webcam_overlay").checked },
     alerts: {
       enabled: $("alerts_enabled").checked,
       notifyUncertain: $("alerts_notifyUncertain").checked,

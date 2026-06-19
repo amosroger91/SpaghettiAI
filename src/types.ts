@@ -120,6 +120,9 @@ export interface WebcamServerConfig {
   enabled: boolean;
   /** Target frames/sec for the MJPEG stream (USB capture is ffmpeg-per-frame, so keep modest). */
   fps: number;
+  /** Bake a status banner (verdict / scene) into the served frames. Costs a little
+   *  CPU per frame (sharp composite), so it's opt-in. See src/image/overlay.ts. */
+  overlay: boolean;
 }
 
 /** Optional MCP server that exposes the API as tools for MCP clients (Claude Desktop/Code). */

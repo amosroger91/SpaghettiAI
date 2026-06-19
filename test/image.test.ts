@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { frameBrightness } from "../src/analysis/scene.js";
 import { prepareImage } from "../src/image/preprocess.js";
 import { enhanceForVision } from "../src/image/enhance.js";
+import { bakeOverlay } from "../src/image/overlay.js";
 import type { ImageConfig } from "../src/types.js";
 
 const CFG: ImageConfig = { maxSize: 256, crop: null, normalize: true, grayscale: false, enhance: false };
@@ -33,4 +34,14 @@ test("prepareImage honors the enhance flag (output differs, still valid JPEG)", 
   const meta = await sharp(enhanced.bytes).metadata();
   assert.equal(meta.format, "jpeg");
   assert.ok((meta.width ?? 0) <= CFG.maxSize && (meta.height ?? 0) <= CFG.maxSize);
+});
+
+test("bakeOverlay composites a status banner and returns a valid same-size JPEG", async () => {
+  const frame = await sharp({ create: { width: 640, height: 480, channels: 3, background: { r: 30, g: 40, b: 60 } } }).jpeg().toBuffer();
+  const out = await bakeOverlay(frame, { label: "Kobra X", status: "Healthy 92%", tone: "ok", sub: "v1.0.4" });
+  assert.ok(!out.equals(frame), "overlay should change the frame (no silent fallback to raw)");
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.format, "jpeg");
+  assert.equal(meta.width, 640);
+  assert.equal(meta.height, 480);
 });

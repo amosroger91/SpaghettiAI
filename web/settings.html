@@ -72,6 +72,7 @@
         <h2>OctoPrint webcam server</h2>
         <label class="chk"><input type="checkbox" id="webcam_enabled" /> Expose cameras (mjpg-streamer style) so OctoPrint can use them</label>
         <label>Stream FPS <input id="webcam_fps" type="number" min="1" max="30" style="width:80px" /></label>
+        <label class="chk"><input type="checkbox" id="webcam_overlay" /> Burn a status banner (verdict / lighting / no-printer) into the streamed frames</label>
         <p class="hint">Paste these into OctoPrint → <i>Settings → Webcam &amp; Timelapse</i>. Use the <b>network</b> URL if OctoPrint runs on another machine; <code>localhost</code> works only on this PC. Save &amp; enable above first.</p>
         <div id="webcamUrls" class="urls">loading camera URLs…</div>
       </section>

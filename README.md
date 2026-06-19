@@ -24,7 +24,7 @@ No cloud · no API keys · no images leave your machine (unless you opt into Gem
 Download and launch the latest prebuilt installer — paste into **PowerShell**:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.3/SpaghettiAI-Setup-1.0.3.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.3.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.4/SpaghettiAI-Setup-1.0.4.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.4.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
 ```
 
 > The `Tls12` prefix is needed on **Windows PowerShell 5.1** (its default TLS is too old for GitHub's download CDN); harmless on PowerShell 7+.
@@ -237,8 +237,15 @@ In OctoPrint → *Settings → Webcam & Timelapse*:
 | Stream URL      | `http://<SpaghettiAI-host>:8787/webcam?action=stream&camera=kobra`  |
 | Snapshot URL    | `http://<SpaghettiAI-host>:8787/webcam?action=snapshot&camera=kobra` |
 
+Settings → *OctoPrint webcam server* now lists the **full copy-paste URLs** (localhost + each
+LAN IP, per camera) so there's nothing to assemble by hand — use the **network** URL when
+OctoPrint runs on another machine.
+
 Serves the full-resolution camera frame (not the model-downscaled one). Tune the frame rate
-with `webcam.fps`, or turn the whole thing off with `webcam.enabled: false`.
+with `webcam.fps`, or turn the whole thing off with `webcam.enabled: false`. Flip on
+`webcam.overlay` (Settings → *Burn a status banner…*) to **bake the live verdict** — healthy /
+failure / no-printer / too-dark — directly into the streamed frames, so it shows up in
+OctoPrint, a browser, or a timelapse with no extra UI.
 
 ## Run it your way
 
@@ -252,6 +259,9 @@ npm install          # fetches the Electron runtime
 npm run app          # build + launch the desktop window
 npm run dist         # build a one-click installer (.exe / .dmg / AppImage) into release/
 ```
+
+Closing the window **minimizes it to the system tray** instead of quitting, so monitoring keeps
+running in the background — click the tray icon to reopen, or right-click → *Quit* to stop.
 
 On Windows `npm run dist` produces a **one-click `.exe` installer** (NSIS: desktop + start-menu
 shortcuts, launches on finish). On first launch the app runs the **Ollama setup automatically**

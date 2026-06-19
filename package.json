@@ -1,6 +1,6 @@
 {
   "name": "spaghetti-ai",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "SpaghettiAI — point a webcam at your 3D printer and let a local vision model catch failed prints (spaghetti), read the bed, identify the printer, and alert you.",
   "type": "module",
   "main": "electron/main.cjs",

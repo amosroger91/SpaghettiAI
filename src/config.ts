@@ -23,7 +23,7 @@ const DEFAULTS: AppConfig = {
   printer: { webLookup: true, searchEndpoint: "https://html.duckduckgo.com/html/", maxResults: 5 },
   alerts: { enabled: false, notifyUncertain: false, cooldownMinutes: 15, channels: [] },
   mcp: { enabled: false, target: "" },
-  webcam: { enabled: true, fps: 5 },
+  webcam: { enabled: true, fps: 5, overlay: false },
   phone: { enabled: true, httpsPort: 8788, staleMs: 10000 },
 };
 

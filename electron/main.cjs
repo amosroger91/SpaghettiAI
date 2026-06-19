@@ -1,6 +1,6 @@
 // Electron wrapper that boots the print-watch server in-process and shows the
 // dashboard in a desktop window. Build first (`npm run build`) so dist/ exists.
-const { app, BrowserWindow, shell, dialog } = require("electron");
+const { app, BrowserWindow, shell, dialog, Tray, Menu, nativeImage } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -67,10 +67,13 @@ function bootstrapOllama() {
   child.on("error", (e) => console.error("ollama bootstrap failed:", e));
 }
 
+const iconPath = path.join(__dirname, "icon.png");
+let tray = null;
+let trayHintShown = false;
+
 function createWindow(ready) {
   // Use the spaghetti icon for the window/taskbar in dev runs; the packaged app
   // gets its icon from the executable that electron-builder stamps with build/icon.ico.
-  const iconPath = path.join(__dirname, "icon.png");
   const win = new BrowserWindow({
     width: 1200,
     height: 920,
@@ -87,7 +90,53 @@ function createWindow(ready) {
     if (url.startsWith("http")) shell.openExternal(url);
     return { action: "deny" };
   });
+
+  // Closing the window doesn't quit — it hides to the system tray so monitoring
+  // keeps running in the background. The tray menu's "Quit" is the real exit.
+  win.on("close", (e) => {
+    if (app.isQuitting) return;
+    e.preventDefault();
+    win.hide();
+    if (tray && !trayHintShown) {
+      trayHintShown = true;
+      try {
+        tray.displayBalloon?.({
+          title: "Still watching 🍝",
+          content: "SpaghettiAI keeps monitoring in the background. Click the tray icon to reopen, or right-click → Quit to stop.",
+        });
+      } catch {}
+    }
+  });
   return win;
+}
+
+// System-tray icon so the app lives in the taskbar tray and keeps monitoring even
+// with the window closed. Click to reopen; right-click for a menu.
+function setupTray(getWin) {
+  if (tray) return;
+  try {
+    const img = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+    tray = new Tray(img.isEmpty() ? img : img.resize({ width: 16, height: 16 }));
+  } catch (e) {
+    console.error("[tray] could not create tray:", (e && e.message) || e);
+    return;
+  }
+  const show = () => {
+    const win = getWin();
+    if (!win) return;
+    win.show();
+    win.focus();
+  };
+  tray.setToolTip("SpaghettiAI — watching your prints");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open SpaghettiAI", click: show },
+      { label: "Monitoring runs in the background", enabled: false },
+      { type: "separator" },
+      { label: "Quit SpaghettiAI", click: () => { app.isQuitting = true; app.quit(); } },
+    ]),
+  );
+  tray.on("click", show);
 }
 
 // Self-update: check the GitHub releases (configured via build.publish, baked into
@@ -135,13 +184,19 @@ app.whenReady().then(async () => {
   }
   const ready = await modelReady();
   if (!ready) bootstrapOllama();
-  const win = createWindow(ready);
+  let win = createWindow(ready);
+  setupTray(() => win || (win = createWindow(true)));
   if (app.isPackaged) setupAutoUpdate(win);
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(true);
+    if (BrowserWindow.getAllWindows().length === 0) win = createWindow(true);
   });
 });
 
+app.on("before-quit", () => { app.isQuitting = true; });
+
+// With minimize-to-tray, the window hides rather than closes, so this rarely fires;
+// keep the macOS convention but otherwise let the tray own the lifecycle.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform === "darwin") return;
+  if (app.isQuitting) app.quit();
 });
