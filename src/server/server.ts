@@ -266,6 +266,57 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
     res.json(s);
   });
 
+  // --- optional mjpg-streamer-compatible webcam server (feed a USB cam into OctoPrint) ---
+  // OctoPrint expects ?action=snapshot (one JPEG) and ?action=stream (multipart MJPEG).
+  // We serve the RAW camera frame here (not the model-downscaled one) so it's full quality.
+  if (cfg.webcam.enabled) {
+    const frameDelay = Math.max(50, Math.round(1000 / Math.max(1, cfg.webcam.fps)));
+
+    app.get(["/webcam", "/webcam/"], async (req, res) => {
+      const cam = resolve(req);
+      if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
+      const action = String(req.query.action ?? "snapshot");
+
+      if (action === "snapshot") {
+        try {
+          const frame = await cam.source.grab();
+          res.set("Content-Type", "image/jpeg").set("Cache-Control", "no-store").send(frame);
+        } catch (e) {
+          res.status(502).json({ error: (e as Error).message });
+        }
+        return;
+      }
+
+      if (action === "stream") {
+        const boundary = "printwatchframe";
+        res.writeHead(200, {
+          "Content-Type": `multipart/x-mixed-replace; boundary=${boundary}`,
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          Connection: "close",
+          Pragma: "no-cache",
+        });
+        let alive = true;
+        req.on("close", () => (alive = false));
+        while (alive && !res.writableEnded) {
+          try {
+            const frame = await cam.source.grab();
+            if (!alive) break;
+            res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
+            res.write(frame);
+            res.write("\r\n");
+          } catch {
+            // transient grab failure — pause briefly and keep the stream open
+          }
+          await new Promise((r) => setTimeout(r, frameDelay));
+        }
+        res.end();
+        return;
+      }
+
+      res.status(400).json({ error: "action must be 'snapshot' or 'stream'" });
+    });
+  }
+
   // --- convenience routes for the extra pages ---
   app.get("/monitor", (_req, res) => res.sendFile(join(ROOT, "web", "monitor.html")));
   app.get("/docs", (_req, res) => res.sendFile(join(ROOT, "web", "docs.html")));

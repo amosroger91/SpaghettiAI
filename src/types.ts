@@ -109,6 +109,20 @@ export interface AlertSendResult {
   detail: string;
 }
 
+/** Optional mjpg-streamer-compatible webcam server (pipe a USB cam into OctoPrint). */
+export interface WebcamServerConfig {
+  enabled: boolean;
+  /** Target frames/sec for the MJPEG stream (USB capture is ffmpeg-per-frame, so keep modest). */
+  fps: number;
+}
+
+/** Optional MCP server that exposes the API as tools for MCP clients (Claude Desktop/Code). */
+export interface McpConfig {
+  enabled: boolean;
+  /** Base URL of the running print-watch HTTP API the MCP tools proxy to. */
+  target: string;
+}
+
 export interface AppConfig {
   server: { port: number; host: string };
   /** One or more cameras to watch. The legacy single `camera` is normalized into this. */
@@ -121,6 +135,8 @@ export interface AppConfig {
   confirm: ConfirmConfig;
   printer: PrinterConfig;
   alerts: AlertsConfig;
+  mcp: McpConfig;
+  webcam: WebcamServerConfig;
 }
 
 /** One model's vote in the confirmation jury. */

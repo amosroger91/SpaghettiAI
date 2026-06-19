@@ -14,7 +14,8 @@
     { "name": "bed-state", "description": "What is on the bed?" },
     { "name": "printer", "description": "What printer is this?" },
     { "name": "troubleshoot", "description": "Why did it fail, and did my fix work?" },
-    { "name": "alerts", "description": "Slack / Discord notifications" }
+    { "name": "alerts", "description": "Slack / Discord notifications" },
+    { "name": "webcam", "description": "mjpg-streamer-compatible feed for OctoPrint" }
   ],
   "paths": {
     "/api/cameras": {
@@ -22,6 +23,21 @@
         "tags": ["cameras"],
         "summary": "List configured cameras and each one's latest results",
         "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Camera" } } } } } }
+      }
+    },
+    "/webcam": {
+      "get": {
+        "tags": ["webcam"],
+        "summary": "OctoPrint-compatible webcam feed (mjpg-streamer style). Optional; toggle with webcam.enabled.",
+        "description": "Point OctoPrint's Stream URL at `/webcam?action=stream&camera=ID` and Snapshot URL at `/webcam?action=snapshot&camera=ID` to pipe a USB cam on this machine into OctoPrint.",
+        "parameters": [
+          { "name": "action", "in": "query", "required": false, "schema": { "type": "string", "enum": ["snapshot", "stream"], "default": "snapshot" } },
+          { "$ref": "#/components/parameters/CameraParam" }
+        ],
+        "responses": {
+          "200": { "description": "A single JPEG (snapshot) or an MJPEG multipart stream", "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } }, "multipart/x-mixed-replace": { "schema": { "type": "string", "format": "binary" } } } },
+          "404": { "description": "Unknown camera", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
       }
     },
     "/api/status": {

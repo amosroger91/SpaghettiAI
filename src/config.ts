@@ -29,6 +29,8 @@ function load(): AppConfig {
   raw.printer ??= { webLookup: true, searchEndpoint: "https://html.duckduckgo.com/html/", maxResults: 5 };
   raw.alerts ??= { enabled: false, notifyUncertain: false, cooldownMinutes: 15, channels: [] };
   raw.alerts.channels ??= [];
+  raw.mcp ??= { enabled: false, target: "" };
+  raw.webcam ??= { enabled: true, fps: 5 };
   raw.cameras = normalizeCameras(raw);
   // Env overrides for the things you most often tweak without editing the file.
   // Single-camera env vars apply to the FIRST camera (back-compat).
@@ -40,6 +42,9 @@ function load(): AppConfig {
   applyAlertEnv(raw.alerts.channels);
   if (process.env.PW_ALERTS_ENABLED) raw.alerts.enabled = process.env.PW_ALERTS_ENABLED !== "false";
   else if (raw.alerts.channels.some((c) => c.enabled)) raw.alerts.enabled = true;
+  // MCP: default target to this instance's own HTTP address.
+  if (process.env.PW_MCP_ENABLED) raw.mcp.enabled = process.env.PW_MCP_ENABLED !== "false";
+  raw.mcp.target = process.env.PW_MCP_TARGET || raw.mcp.target || `http://${raw.server.host}:${raw.server.port}`;
   return raw as AppConfig;
 }
 

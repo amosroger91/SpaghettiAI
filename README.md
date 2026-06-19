@@ -25,8 +25,10 @@ No cloud · no API keys · no images leave your machine.
 | 🖨️ **"What printer is this?"** | Identifies the machine in view: motion style (bed-slinger / CoreXY / delta) and enclosure, plus make/model. It **reads the branding off the machine and looks it up online** to name the exact printer instead of guessing (e.g. `ACE GEN2` → Anycubic Kobra X). |
 | 📺 **Live monitor** | A grid dashboard that streams **every camera** at once and re-checks health + bed state on an interval, so you can watch a whole print farm from one tab. |
 | 🔔 **Alerts** | Get a **Slack or Discord** ping the moment a failure is detected — webhook or bot, per channel. |
+| 🎥 **OctoPrint feed** | Re-serves any camera in **mjpg-streamer format**, so a USB cam on this box becomes an OctoPrint webcam. |
+| 🤖 **MCP server** | Optional [MCP](https://modelcontextprotocol.io) server — drive everything from Claude or any MCP client by voice/chat. |
 
-Run it however you like: **`npm run dev`**, a **desktop app** (Electron), or **Docker** for a headless box watching many cameras.
+Run it however you like: **`npm run dev`**, a one-click **desktop app** (Electron), or **Docker** for a headless box watching many cameras.
 
 ## Contents
 
@@ -34,7 +36,9 @@ Run it however you like: **`npm run dev`**, a **desktop app** (Electron), or **D
 - [Configure your cameras](#configure-your-cameras)
 - [Live monitor](#live-monitor)
 - [Alerts](#alerts)
+- [Feed OctoPrint](#feed-octoprint) (use a USB cam as an OctoPrint webcam)
 - [Run it your way](#run-it-your-way) (desktop · Docker)
+- [MCP server](#mcp-server) (use it from Claude / any MCP client)
 - [Choosing a model](#choosing-a-model)
 - [Printer & bed state](#printer--bed-state)
 - [How it works](#how-it-works)
@@ -45,15 +49,18 @@ Run it however you like: **`npm run dev`**, a **desktop app** (Electron), or **D
 ## Quick start
 
 ```bash
-# 1. Install Ollama + a vision model  (https://ollama.com)
-ollama pull gemma3:4b
-
-# 2. Run
 git clone https://github.com/amosroger91/printjob-llm-webcam-monitor.git
 cd printjob-llm-webcam-monitor
 npm install
+npm run setup    # installs Ollama if needed, starts it, pulls the vision model
 npm run dev
 ```
+
+`npm run setup` is the automated path — it installs Ollama (winget / Homebrew /
+install.sh), launches it, and pulls the model (`gemma3:4b` by default, or `$PW_MODEL`).
+Already have Ollama? It just checks and pulls the model. Prefer to do it by hand?
+`ollama pull gemma3:4b` is all you need. Standalone scripts also live in
+[`scripts/`](scripts) (`setup-ollama.ps1`, `setup-ollama.sh`).
 
 Then open:
 
@@ -147,20 +154,41 @@ a `alerts.cooldownMinutes` window so you're not spammed every cycle.
 PW_DISCORD_WEBHOOK="https://discord.com/api/webhooks/…" npm run dev
 ```
 
+## Feed OctoPrint
+
+Got a USB webcam on the print-watch machine and want OctoPrint (often on a different Pi) to
+use it? print-watch can re-serve any camera in the **mjpg-streamer format OctoPrint expects**.
+In OctoPrint → *Settings → Webcam & Timelapse*:
+
+| OctoPrint field | Set to                                                        |
+|-----------------|---------------------------------------------------------------|
+| Stream URL      | `http://<print-watch-host>:8787/webcam?action=stream&camera=kobra`  |
+| Snapshot URL    | `http://<print-watch-host>:8787/webcam?action=snapshot&camera=kobra` |
+
+Serves the full-resolution camera frame (not the model-downscaled one). Tune the frame rate
+with `webcam.fps`, or turn the whole thing off with `webcam.enabled: false`.
+
 ## Run it your way
 
 **1 · Node (dev)** — `npm run dev`, open the URLs above.
 
-**2 · Desktop app (Electron)** — a standalone window for end users, no terminal needed:
+**2 · Desktop app (Electron)** — a standalone, one-click product for end users, no terminal:
 
 ```bash
 npm install          # fetches the Electron runtime
 npm run app          # build + launch the desktop window
-npm run dist         # build an installer (.exe / .dmg / AppImage) into release/
+npm run dist         # build a one-click installer (.exe / .dmg / AppImage) into release/
 ```
 
-The desktop build keeps snapshots + history in your per-user app-data folder, so it runs
-fine from a read-only install location.
+On Windows `npm run dist` produces a **one-click `.exe` installer** (NSIS: desktop + start-menu
+shortcuts, launches on finish). On first launch the app runs the **Ollama setup automatically**
+— it shows a setup screen, installs/starts Ollama, pulls the model, then opens the monitor.
+Data (snapshots, history) lives in your per-user app-data folder, so it runs from a read-only
+install location.
+
+> Building the installer on Windows needs **Developer Mode on** (or an elevated shell) — that's
+> an [electron-builder requirement](https://www.electron.build/) for unpacking its signing
+> tools, not a print-watch one. The packaged app itself is in `release/win-unpacked/`.
 
 **3 · Docker** — best for a headless box watching lots of network cameras. Ollama runs on
 the host; the container talks to it over `host.docker.internal`:
@@ -172,6 +200,40 @@ docker compose up --build      # → http://localhost:8787
 Edit `config.json` (bind-mounted) to add your cameras; snapshots persist in a named volume.
 For USB passthrough on a Linux host, uncomment the `devices:` block in `docker-compose.yml`.
 A fully self-contained stack (Ollama in a container too) is included commented-out.
+
+## MCP server
+
+print-watch ships an optional **[MCP](https://modelcontextprotocol.io) server** so an AI
+assistant (Claude Desktop / Claude Code / any MCP client) can drive it with tools —
+*"check printer 2", "what's on the bed?", "show me a snapshot", "send a test alert"*.
+
+It's **off by default**. Enable it, then run it over stdio:
+
+```bash
+PW_MCP_ENABLED=true npm run mcp     # or set mcp.enabled: true in config.json
+```
+
+It proxies to a running print-watch server (start `npm run dev` too), exposing 10 tools:
+`list_cameras`, `get_status`, `get_camera_snapshot`, `check_print`, `get_bed_state`,
+`identify_printer`, `troubleshoot`, `recent_checks`, `alerts_status`, `send_test_alert`.
+
+Register it once with **Claude Code** so every new session has it:
+
+```bash
+claude mcp add print-watch -s user -e PW_MCP_ENABLED=true -- node /abs/path/dist/mcp/stdio.js
+```
+
+Or add to a **Claude Desktop** `claude_desktop_config.json`:
+
+```jsonc
+{ "mcpServers": {
+  "print-watch": {
+    "command": "node",
+    "args": ["/abs/path/printjob-llm-webcam-monitor/dist/mcp/stdio.js"],
+    "env": { "PW_MCP_ENABLED": "true" }
+  }
+} }
+```
 
 ## Choosing a model
 
@@ -232,9 +294,11 @@ legible text it runs a **web lookup** and names the printer from real search res
 | `analysis/`  | `failureCheck`, `troubleshoot`, `bedState`, and `printerDetect`             |
 | `web/`       | `ddgSearch` — text-only DuckDuckGo lookup used to ground printer make/model |
 | `alerts/`    | Slack/Discord notifiers (webhook + bot) with per-key cooldown               |
+| `mcp/`       | Optional MCP server (stdio) exposing the API as tools for AI clients         |
 | `store/`     | JSON-file persistence of checks, sessions, bed-states, detections, snapshots|
-| `server/`    | Express API + SSE; multi-camera registry; serves the dashboards in `web/`   |
-| `electron/`  | Desktop wrapper that boots the server in-process and opens a window         |
+| `server/`    | Express API + SSE; multi-camera registry; OctoPrint webcam feed; dashboards |
+| `electron/`  | Desktop wrapper: boots the server, first-run Ollama setup, opens a window   |
+| `scripts/`   | `ensure-ollama.mjs` + `setup-ollama.*` — automated model install/config     |
 
 Add a `VisionProvider` to swap the model backend, or a `CaptureSource` to add a camera type
 — nothing else changes. Results carry a `cameraId`, so every endpoint is per-camera via
@@ -289,14 +353,17 @@ Every per-camera endpoint accepts `?camera=<id>` (defaults to the first camera).
 | POST   | `/api/troubleshoot/:id/verify`        | Verify an applied change worked      |
 | GET    | `/api/sessions` · `/api/sessions/:id` | Troubleshooting sessions             |
 | GET    | `/api/events`                         | Server-Sent Events (progress/alerts) |
+| GET    | `/webcam`                             | OctoPrint-style `?action=snapshot` / `?action=stream` (optional) |
 
 ## Development
 
 ```bash
 npm run dev        # watch mode (tsx)
+npm run setup      # install/configure Ollama + pull the model
 npm run build      # typecheck + emit to dist/
+npm run mcp        # run the MCP server (needs mcp.enabled / PW_MCP_ENABLED)
 npm run app        # build + launch the Electron desktop app
-npm run dist       # build a desktop installer into release/
+npm run dist       # build a one-click desktop installer into release/
 npm run docker:up  # build + run via docker compose
 npm run smoke      # end-to-end pipeline smoke test
 npm run eval       # accuracy eval against the labeled fixtures
@@ -306,7 +373,9 @@ npm run eval       # accuracy eval against the labeled fixtures
 
 - [x] Multi-camera monitoring with a live grid dashboard
 - [x] Slack / Discord alerts on failure (webhook + bot)
-- [x] Desktop app + Docker packaging
+- [x] Desktop app (one-click installer) + Docker packaging
+- [x] Optional MCP server + automated Ollama setup
+- [x] OctoPrint-compatible webcam passthrough
 - [ ] Scheduled background monitoring (no tab open) + ntfy/email channels
 - [ ] OctoPrint plugin / print-state awareness (only watch while printing)
 - [ ] Optional cloud-model escalation for *uncertain* verdicts

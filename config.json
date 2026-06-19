@@ -58,5 +58,15 @@
       { "type": "discord", "mode": "webhook", "enabled": false, "webhookUrl": "" },
       { "type": "discord", "mode": "bot", "enabled": false, "token": "", "channel": "" }
     ]
+  },
+  "mcp": {
+    "comment": "Optional MCP server exposing the cameras/checks/alerts as tools for MCP clients (Claude Desktop/Code). Off by default; enable here or with PW_MCP_ENABLED=true, then run `npm run mcp`. 'target' is the running print-watch HTTP API the tools call (defaults to this instance).",
+    "enabled": false,
+    "target": ""
+  },
+  "webcam": {
+    "comment": "Optional mjpg-streamer-compatible webcam server so OctoPrint (or anything expecting ?action=snapshot / ?action=stream) can consume a USB cam attached to THIS machine. Snapshot: /webcam?action=snapshot&camera=ID  ·  Stream: /webcam?action=stream&camera=ID. Set enabled:false to turn off.",
+    "enabled": true,
+    "fps": 5
   }
 }
