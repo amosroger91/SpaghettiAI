@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>print-watch · monitor</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🖨️ print-watch <span class="subtitle">· live monitor</span></h1>
+      <nav class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/monitor" class="active">Monitor</a>
+        <a href="/docs">API docs</a>
+        <span id="status" class="status">connecting…</span>
+      </nav>
+    </header>
+
+    <main class="monitor">
+      <section class="panel controlbar">
+        <div class="panel-head">
+          <h2>Live monitor — <span id="camCount">0</span> camera(s)</h2>
+          <div class="controls">
+            <label class="toggle">every
+              <input type="number" id="interval" min="5" step="5" value="30" /> s
+            </label>
+            <button id="toggleBtn" class="primary">▶ Start monitoring</button>
+            <button id="runBtn">Run once</button>
+          </div>
+        </div>
+        <p class="hint"><span id="cycleState">Idle.</span> <span id="lastRun"></span></p>
+      </section>
+
+      <div id="grid" class="camgrid"></div>
+
+      <section class="panel alerts">
+        <div class="panel-head">
+          <h2>Alerts</h2>
+          <button id="testAlertBtn">Send test alert</button>
+        </div>
+        <div id="alertStatus" class="result empty">loading…</div>
+      </section>
+
+      <section class="panel log">
+        <h2>Activity</h2>
+        <div id="log" class="logbox"></div>
+      </section>
+    </main>
+
+    <script src="/monitor.js"></script>
+  </body>
+</html>

@@ -26,7 +26,7 @@ const cfg = { ...config, check: { ...config.check, frames: 1, samples: 1 } };
 
 console.log("running single-pass check against gemma3:4b…");
 const t0 = Date.now();
-const result = await runFailureCheck(source, ai, cfg, (m) => console.log("  ", m));
+const result = await runFailureCheck(source, ai, cfg, "smoke", (m) => console.log("  ", m));
 console.log(`done in ${((Date.now() - t0) / 1000).toFixed(1)}s\n`);
 console.log(JSON.stringify({ verdict: result.verdict, confidence: result.confidence, issues: result.issues, summary: result.summary, passes: result.passes }, null, 2));
 process.exit(0);

@@ -35,6 +35,7 @@ export async function runPrinterDetection(
   source: CaptureSource,
   ai: VisionProvider,
   cfg: AppConfig,
+  cameraId?: string,
   onProgress?: (msg: string) => void,
 ): Promise<PrinterDetectionResult> {
   const id = randomUUID().slice(0, 8);
@@ -125,6 +126,7 @@ export async function runPrinterDetection(
   const result: PrinterDetectionResult = {
     id,
     ts,
+    cameraId,
     kinematics,
     enclosure,
     brand,

@@ -1,9 +1,10 @@
 import express from "express";
+import type { Request } from "express";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import { ROOT } from "../config.js";
 import type { AppConfig } from "../types.js";
-import type { CaptureSource } from "../capture/index.js";
+import type { CameraEntry } from "../capture/index.js";
 import type { VisionProvider } from "../ai/provider.js";
 import { store } from "../store/store.js";
 import { prepareImage } from "../image/preprocess.js";
@@ -11,15 +12,73 @@ import { runFailureCheck } from "../analysis/failureCheck.js";
 import { runBedStateCheck } from "../analysis/bedState.js";
 import { runPrinterDetection } from "../analysis/printerDetect.js";
 import { startTroubleshoot, verifyOutcome } from "../analysis/troubleshoot.js";
+import { AlertManager } from "../alerts/index.js";
+import type { Alert, BedStateResult, CheckResult } from "../types.js";
 
-export function createServer(cfg: AppConfig, source: CaptureSource, ai: VisionProvider) {
+export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, ai: VisionProvider) {
   const app = express();
   app.use(express.json({ limit: "2mb" }));
 
+  // Permissive CORS so the documented API is reachable from other local tools / Swagger UI.
+  app.use((_req, res, next) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    next();
+  });
+  app.options(/.*/, (_req, res) => res.sendStatus(204));
+
+  const alerts = new AlertManager(cfg.alerts);
+  const cameraList = [...cameras.values()];
+  const defaultId = cameraList[0]?.id;
+
+  // Resolve the target camera from ?camera=ID (defaults to the first configured one).
+  const resolve = (req: Request): CameraEntry | undefined => {
+    const id = String(req.query.camera ?? "") || defaultId;
+    return cameras.get(id);
+  };
+  // Per-camera, per-operation busy flags so two cameras can run concurrently while a
+  // single camera can't overlap its own checks.
+  const busy = { check: new Set<string>(), bed: new Set<string>(), printer: new Set<string>() };
+
   // --- live event bus (SSE) for progress + alerts ---
   const bus = new EventEmitter();
-  bus.setMaxListeners(50);
-  const emit = (type: string, data: unknown) => bus.emit("evt", { type, data, ts: Date.now() });
+  bus.setMaxListeners(200);
+  const emit = (type: string, data: Record<string, unknown>) => bus.emit("evt", { type, data, ts: Date.now() });
+
+  // Fire-and-forget alert dispatch (cooldown + enable handled by AlertManager). Keyed
+  // per camera so each printer alerts independently.
+  const fire = (alert: Alert) => {
+    alerts
+      .dispatch(alert)
+      .then((results) => {
+        if (results.length) emit("alert:sent", { key: alert.key, results });
+      })
+      .catch((e) => emit("alert:error", { error: (e as Error).message }));
+  };
+  const camName = (id?: string) => (id && cameras.get(id)?.label) || id || "camera";
+  const maybeAlertCheck = (r: CheckResult) => {
+    const critical = r.verdict === "failed";
+    const warn = r.verdict === "uncertain" && cfg.alerts.notifyUncertain;
+    if (!critical && !warn) return;
+    fire({
+      key: `check:${r.cameraId}:${r.verdict}`,
+      level: critical ? "critical" : "warning",
+      title: `${critical ? "Print failure detected" : "Print may be failing"} — ${camName(r.cameraId)}`,
+      body: r.summary,
+      ts: Date.now(),
+    });
+  };
+  const maybeAlertBed = (r: BedStateResult) => {
+    if (r.state !== "failed") return;
+    fire({
+      key: `bed:${r.cameraId}:failed`,
+      level: "critical",
+      title: `Failed print on the bed — ${camName(r.cameraId)}`,
+      body: r.summary,
+      ts: Date.now(),
+    });
+  };
 
   app.get("/api/events", (req, res) => {
     res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
@@ -34,24 +93,45 @@ export function createServer(cfg: AppConfig, source: CaptureSource, ai: VisionPr
     });
   });
 
+  // --- cameras ---
+  app.get("/api/cameras", (_req, res) => {
+    res.json(
+      cameraList.map((c) => ({
+        id: c.id,
+        label: c.label,
+        kind: c.source.kind,
+        describe: c.source.describe(),
+        latest: store.latestCheck(c.id) ?? null,
+        latestBedState: store.latestBedState(c.id) ?? null,
+        latestPrinter: store.latestPrinterDetection(c.id) ?? null,
+      })),
+    );
+  });
+
   // --- status / health ---
   app.get("/api/status", async (_req, res) => {
     const health = await ai.health();
+    const first = cameraList[0];
     res.json({
-      camera: source.describe(),
-      cameraKind: source.kind,
+      // legacy single-camera fields point at the first camera for back-compat
+      camera: first?.source.describe() ?? "none",
+      cameraKind: first?.source.kind ?? "none",
+      cameras: cameraList.map((c) => ({ id: c.id, label: c.label, kind: c.source.kind })),
       ai: { name: ai.name, ...health },
       check: cfg.check,
-      latest: store.latestCheck() ?? null,
-      latestBedState: store.latestBedState() ?? null,
-      latestPrinter: store.latestPrinterDetection() ?? null,
+      alerts: { enabled: cfg.alerts.enabled },
+      latest: store.latestCheck(defaultId) ?? null,
+      latestBedState: store.latestBedState(defaultId) ?? null,
+      latestPrinter: store.latestPrinterDetection(defaultId) ?? null,
     });
   });
 
   // --- live preview frame (preprocessed, as the model sees it) ---
-  app.get("/api/snapshot", async (_req, res) => {
+  app.get("/api/snapshot", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
     try {
-      const raw = await source.grab();
+      const raw = await cam.source.grab();
       const prepped = await prepareImage(raw, cfg.image);
       res.set("Content-Type", "image/jpeg").set("Cache-Control", "no-store").send(prepped.bytes);
     } catch (e) {
@@ -60,74 +140,105 @@ export function createServer(cfg: AppConfig, source: CaptureSource, ai: VisionPr
   });
 
   // --- use case 1: failure check ---
-  let checkRunning = false;
-  app.post("/api/check", async (_req, res) => {
-    if (checkRunning) return res.status(409).json({ error: "a check is already running" });
-    checkRunning = true;
-    emit("check:start", {});
+  app.post("/api/check", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
+    if (busy.check.has(cam.id)) return res.status(409).json({ error: `a check is already running for ${cam.label}` });
+    busy.check.add(cam.id);
+    emit("check:start", { cameraId: cam.id });
     try {
-      const result = await runFailureCheck(source, ai, cfg, (msg) => emit("check:progress", { msg }));
-      emit("check:done", result);
-      if (result.verdict === "failed") emit("alert", { summary: result.summary });
+      const result = await runFailureCheck(cam.source, ai, cfg, cam.id, (msg) => emit("check:progress", { cameraId: cam.id, msg }));
+      emit("check:done", { cameraId: cam.id, result });
+      maybeAlertCheck(result);
       res.json(result);
     } catch (e) {
-      emit("check:error", { error: (e as Error).message });
+      emit("check:error", { cameraId: cam.id, error: (e as Error).message });
       res.status(500).json({ error: (e as Error).message });
     } finally {
-      checkRunning = false;
+      busy.check.delete(cam.id);
     }
   });
 
-  app.get("/api/checks", (_req, res) => res.json(store.listChecks()));
+  app.get("/api/checks", (req, res) => res.json(store.listChecks(50, req.query.camera ? String(req.query.camera) : undefined)));
 
   // --- use case 3: bed / job state ---
-  let bedRunning = false;
-  app.post("/api/bed-state", async (_req, res) => {
-    if (bedRunning) return res.status(409).json({ error: "a bed-state check is already running" });
-    bedRunning = true;
-    emit("bed:start", {});
+  app.post("/api/bed-state", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
+    if (busy.bed.has(cam.id)) return res.status(409).json({ error: `a bed-state check is already running for ${cam.label}` });
+    busy.bed.add(cam.id);
+    emit("bed:start", { cameraId: cam.id });
     try {
-      const result = await runBedStateCheck(source, ai, cfg, (msg) => emit("bed:progress", { msg }));
-      emit("bed:done", result);
+      const result = await runBedStateCheck(cam.source, ai, cfg, cam.id, (msg) => emit("bed:progress", { cameraId: cam.id, msg }));
+      emit("bed:done", { cameraId: cam.id, result });
+      maybeAlertBed(result);
       res.json(result);
     } catch (e) {
-      emit("bed:error", { error: (e as Error).message });
+      emit("bed:error", { cameraId: cam.id, error: (e as Error).message });
       res.status(500).json({ error: (e as Error).message });
     } finally {
-      bedRunning = false;
+      busy.bed.delete(cam.id);
     }
   });
 
-  app.get("/api/bed-states", (_req, res) => res.json(store.listBedStates()));
+  app.get("/api/bed-states", (req, res) =>
+    res.json(store.listBedStates(50, req.query.camera ? String(req.query.camera) : undefined)),
+  );
 
   // --- use case 4: printer detection ---
-  let printerRunning = false;
-  app.post("/api/printer", async (_req, res) => {
-    if (printerRunning) return res.status(409).json({ error: "a printer detection is already running" });
-    printerRunning = true;
-    emit("printer:start", {});
+  app.post("/api/printer", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
+    if (busy.printer.has(cam.id)) return res.status(409).json({ error: `a detection is already running for ${cam.label}` });
+    busy.printer.add(cam.id);
+    emit("printer:start", { cameraId: cam.id });
     try {
-      const result = await runPrinterDetection(source, ai, cfg, (msg) => emit("printer:progress", { msg }));
-      emit("printer:done", result);
+      const result = await runPrinterDetection(cam.source, ai, cfg, cam.id, (msg) => emit("printer:progress", { cameraId: cam.id, msg }));
+      emit("printer:done", { cameraId: cam.id, result });
       res.json(result);
     } catch (e) {
-      emit("printer:error", { error: (e as Error).message });
+      emit("printer:error", { cameraId: cam.id, error: (e as Error).message });
       res.status(500).json({ error: (e as Error).message });
     } finally {
-      printerRunning = false;
+      busy.printer.delete(cam.id);
     }
   });
 
-  app.get("/api/printers", (_req, res) => res.json(store.listPrinterDetections()));
+  app.get("/api/printers", (req, res) =>
+    res.json(store.listPrinterDetections(50, req.query.camera ? String(req.query.camera) : undefined)),
+  );
 
-  // --- use case 2: troubleshooting ---
+  // --- alerts ---
+  app.get("/api/alerts", (_req, res) => {
+    res.json({ enabled: cfg.alerts.enabled, notifyUncertain: cfg.alerts.notifyUncertain, channels: alerts.status() });
+  });
+
+  app.post("/api/alerts/test", async (_req, res) => {
+    const ready = alerts.readyChannels();
+    if (ready.length === 0) {
+      return res.status(400).json({ error: "no ready alert channels — enable one and provide its webhook/token (env or config)" });
+    }
+    const results = await alerts.send({
+      key: "test",
+      level: "warning",
+      title: "print-watch test alert",
+      body: "If you can read this, alerts are wired up correctly. 🎉",
+      ts: Date.now(),
+    });
+    emit("alert:sent", { key: "test", results });
+    res.json({ results });
+  });
+
+  // --- use case 2: troubleshooting (operates on the resolved camera) ---
   app.post("/api/troubleshoot", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
     const symptom = String(req.body?.symptom ?? "").trim();
     if (!symptom) return res.status(400).json({ error: "symptom required" });
     try {
-      emit("ts:start", { symptom });
-      const session = await startTroubleshoot(source, ai, cfg, symptom);
-      emit("ts:diagnosed", session);
+      emit("ts:start", { cameraId: cam.id, symptom });
+      const session = await startTroubleshoot(cam.source, ai, cfg, symptom);
+      emit("ts:diagnosed", { cameraId: cam.id, session });
       res.json(session);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -135,11 +246,13 @@ export function createServer(cfg: AppConfig, source: CaptureSource, ai: VisionPr
   });
 
   app.post("/api/troubleshoot/:id/verify", async (req, res) => {
+    const cam = resolve(req);
+    if (!cam) return res.status(404).json({ error: `unknown camera '${req.query.camera}'` });
     const idx = Number(req.body?.suggestionIndex ?? 0);
     try {
       emit("ts:verifying", { id: req.params.id });
-      const session = await verifyOutcome(source, ai, cfg, req.params.id, idx);
-      emit("ts:verified", session);
+      const session = await verifyOutcome(cam.source, ai, cfg, req.params.id, idx);
+      emit("ts:verified", { session });
       res.json(session);
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
@@ -153,7 +266,11 @@ export function createServer(cfg: AppConfig, source: CaptureSource, ai: VisionPr
     res.json(s);
   });
 
-  // --- static: snapshots + dashboard ---
+  // --- convenience routes for the extra pages ---
+  app.get("/monitor", (_req, res) => res.sendFile(join(ROOT, "web", "monitor.html")));
+  app.get("/docs", (_req, res) => res.sendFile(join(ROOT, "web", "docs.html")));
+
+  // --- static: snapshots + dashboard (also serves openapi.json) ---
   app.use("/snapshots", express.static(store.snapshotDir(), { maxAge: 0 }));
   app.use("/", express.static(join(ROOT, "web")));
 

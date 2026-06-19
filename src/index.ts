@@ -1,20 +1,21 @@
 import { config } from "./config.js";
 import { store } from "./store/store.js";
-import { createCaptureSource } from "./capture/index.js";
+import { createCameraRegistry } from "./capture/index.js";
 import { OllamaVisionProvider } from "./ai/ollama.js";
 import { createServer } from "./server/server.js";
 
 async function main() {
   store.init();
 
-  const source = createCaptureSource(config.camera);
+  const cameras = createCameraRegistry(config.cameras);
   const ai = new OllamaVisionProvider(config.ai);
-  const { app } = createServer(config, source, ai);
+  const { app } = createServer(config, cameras, ai);
 
   const { port, host } = config.server;
   app.listen(port, host, async () => {
     console.log(`\n  print-watch  →  http://${host}:${port}`);
-    console.log(`  camera:  ${source.describe()}`);
+    console.log(`  cameras: ${cameras.size}`);
+    for (const c of cameras.values()) console.log(`    • ${c.id} (${c.label}) — ${c.source.describe()}`);
     const health = await ai.health();
     console.log(`  ai:      ${ai.name} — ${health.ok ? "OK" : "⚠ " + health.detail}`);
     if (!health.ok) {

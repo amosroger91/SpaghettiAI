@@ -1,0 +1,280 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "print-watch API",
+    "version": "0.1.0",
+    "description": "Local API for the print-watch 3D-print webcam monitor. All inference runs on a local Ollama model; the only outbound calls are the optional printer web-lookup (text only) and alert delivery (Slack/Discord).",
+    "license": { "name": "MIT" }
+  },
+  "servers": [{ "url": "/", "description": "This print-watch instance" }],
+  "tags": [
+    { "name": "cameras", "description": "Configured cameras (multi-camera deployments)" },
+    { "name": "status", "description": "Health and live preview" },
+    { "name": "failure-check", "description": "Has this print failed?" },
+    { "name": "bed-state", "description": "What is on the bed?" },
+    { "name": "printer", "description": "What printer is this?" },
+    { "name": "troubleshoot", "description": "Why did it fail, and did my fix work?" },
+    { "name": "alerts", "description": "Slack / Discord notifications" }
+  ],
+  "paths": {
+    "/api/cameras": {
+      "get": {
+        "tags": ["cameras"],
+        "summary": "List configured cameras and each one's latest results",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Camera" } } } } } }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": ["status"],
+        "summary": "Camera + model health and current config",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } } } }
+      }
+    },
+    "/api/snapshot": {
+      "get": {
+        "tags": ["status"],
+        "summary": "Live preprocessed camera frame (as the model sees it)",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": {
+          "200": { "description": "JPEG frame", "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } } } },
+          "502": { "description": "Camera unreachable", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/check": {
+      "post": {
+        "tags": ["failure-check"],
+        "summary": "Run a double-checked failure inspection (multi-pass, multi-frame vote)",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": {
+          "200": { "description": "Aggregated verdict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CheckResult" } } } },
+          "409": { "description": "A check is already running", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/checks": {
+      "get": {
+        "tags": ["failure-check"],
+        "summary": "Recent failure-check history",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CheckResult" } } } } } }
+      }
+    },
+    "/api/bed-state": {
+      "post": {
+        "tags": ["bed-state"],
+        "summary": "Classify the bed/job state (empty/printing/complete/failed)",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": {
+          "200": { "description": "Bed state", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BedStateResult" } } } },
+          "409": { "description": "Already running", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/bed-states": {
+      "get": {
+        "tags": ["bed-state"],
+        "summary": "Recent bed-state history",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/BedStateResult" } } } } } }
+      }
+    },
+    "/api/printer": {
+      "post": {
+        "tags": ["printer"],
+        "summary": "Identify the printer; reads on-machine branding and (optionally) looks it up online",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": {
+          "200": { "description": "Detection result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrinterDetectionResult" } } } },
+          "409": { "description": "Already running", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/printers": {
+      "get": {
+        "tags": ["printer"],
+        "summary": "Recent printer detections",
+        "parameters": [{ "$ref": "#/components/parameters/CameraParam" }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PrinterDetectionResult" } } } } } }
+      }
+    },
+    "/api/troubleshoot": {
+      "post": {
+        "tags": ["troubleshoot"],
+        "summary": "Diagnose a reported symptom and propose verifiable fixes",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["symptom"], "properties": { "symptom": { "type": "string", "example": "first layer not sticking on the left side" } } } } } },
+        "responses": {
+          "200": { "description": "A troubleshooting session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TroubleshootSession" } } } },
+          "400": { "description": "symptom required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/troubleshoot/{id}/verify": {
+      "post": {
+        "tags": ["troubleshoot"],
+        "summary": "Capture a new frame and judge whether an applied change improved the print",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "suggestionIndex": { "type": "integer", "default": 0 } } } } } },
+        "responses": { "200": { "description": "Updated session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TroubleshootSession" } } } } }
+      }
+    },
+    "/api/sessions": {
+      "get": { "tags": ["troubleshoot"], "summary": "All troubleshooting sessions", "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TroubleshootSession" } } } } } } }
+    },
+    "/api/sessions/{id}": {
+      "get": {
+        "tags": ["troubleshoot"],
+        "summary": "One troubleshooting session",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TroubleshootSession" } } } }, "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "tags": ["alerts"],
+        "summary": "Alert configuration and per-channel readiness (credentials masked)",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertStatus" } } } } }
+      }
+    },
+    "/api/alerts/test": {
+      "post": {
+        "tags": ["alerts"],
+        "summary": "Send a test alert to every ready channel (bypasses cooldown)",
+        "responses": {
+          "200": { "description": "Per-channel send results", "content": { "application/json": { "schema": { "type": "object", "properties": { "results": { "type": "array", "items": { "$ref": "#/components/schemas/AlertSendResult" } } } } } } },
+          "400": { "description": "No ready channels", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": ["status"],
+        "summary": "Server-Sent Events stream (progress, alerts, lifecycle)",
+        "responses": { "200": { "description": "text/event-stream", "content": { "text/event-stream": { "schema": { "type": "string" } } } } }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "CameraParam": {
+        "name": "camera",
+        "in": "query",
+        "required": false,
+        "description": "Camera id (see GET /api/cameras). Defaults to the first configured camera.",
+        "schema": { "type": "string" }
+      }
+    },
+    "schemas": {
+      "Error": { "type": "object", "properties": { "error": { "type": "string" } } },
+      "Camera": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "kind": { "type": "string", "enum": ["http-snapshot", "mjpeg", "usb", "folder"] },
+          "describe": { "type": "string" },
+          "latest": { "allOf": [{ "$ref": "#/components/schemas/CheckResult" }], "nullable": true },
+          "latestBedState": { "allOf": [{ "$ref": "#/components/schemas/BedStateResult" }], "nullable": true },
+          "latestPrinter": { "allOf": [{ "$ref": "#/components/schemas/PrinterDetectionResult" }], "nullable": true }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "camera": { "type": "string" },
+          "cameraKind": { "type": "string", "enum": ["http-snapshot", "mjpeg", "usb", "folder"] },
+          "ai": { "type": "object", "properties": { "name": { "type": "string" }, "ok": { "type": "boolean" }, "detail": { "type": "string" } } },
+          "check": { "$ref": "#/components/schemas/CheckConfig" },
+          "latest": { "allOf": [{ "$ref": "#/components/schemas/CheckResult" }], "nullable": true },
+          "latestBedState": { "allOf": [{ "$ref": "#/components/schemas/BedStateResult" }], "nullable": true },
+          "latestPrinter": { "allOf": [{ "$ref": "#/components/schemas/PrinterDetectionResult" }], "nullable": true }
+        }
+      },
+      "CheckConfig": {
+        "type": "object",
+        "properties": { "samples": { "type": "integer" }, "frames": { "type": "integer" }, "frameDelayMs": { "type": "integer" }, "confidenceThreshold": { "type": "number" }, "sampleTemperature": { "type": "number" } }
+      },
+      "IssueFinding": {
+        "type": "object",
+        "properties": { "type": { "type": "string", "enum": ["spaghetti", "detached", "blob", "stringing", "layer_shift", "other"] }, "present": { "type": "boolean" }, "severity": { "type": "string", "enum": ["none", "minor", "major"] }, "note": { "type": "string" } }
+      },
+      "CheckResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "ts": { "type": "integer", "format": "int64" },
+          "verdict": { "type": "string", "enum": ["ok", "failed", "uncertain"] },
+          "confidence": { "type": "number" },
+          "issues": { "type": "array", "items": { "$ref": "#/components/schemas/IssueFinding" } },
+          "summary": { "type": "string" },
+          "framesAnalyzed": { "type": "integer" },
+          "samplesPerFrame": { "type": "integer" },
+          "snapshotPaths": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "BedStateResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "ts": { "type": "integer", "format": "int64" },
+          "state": { "type": "string", "enum": ["empty", "printing", "complete", "failed", "unsure"] },
+          "occupied": { "type": "boolean" },
+          "confidence": { "type": "number" },
+          "summary": { "type": "string" },
+          "samples": { "type": "integer" },
+          "snapshotPath": { "type": "string" }
+        }
+      },
+      "WebSource": { "type": "object", "properties": { "title": { "type": "string" }, "url": { "type": "string" }, "snippet": { "type": "string" } } },
+      "PrinterDetectionResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "ts": { "type": "integer", "format": "int64" },
+          "kinematics": { "type": "string", "enum": ["bed_slinger", "corexy", "delta", "other", "unknown"] },
+          "enclosure": { "type": "string", "enum": ["open", "enclosed", "unknown"] },
+          "brand": { "type": "string" },
+          "model": { "type": "string" },
+          "visibleText": { "type": "string" },
+          "confidence": { "type": "number" },
+          "summary": { "type": "string" },
+          "identifiedVia": { "type": "string", "enum": ["vision", "web"] },
+          "searchQuery": { "type": "string" },
+          "sources": { "type": "array", "items": { "$ref": "#/components/schemas/WebSource" } },
+          "snapshotPath": { "type": "string" }
+        }
+      },
+      "TroubleshootSession": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "ts": { "type": "integer", "format": "int64" },
+          "status": { "type": "string", "enum": ["investigating", "watching", "resolved", "failed"] },
+          "symptom": { "type": "string" },
+          "baselineSnapshot": { "type": "string" },
+          "suggestions": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "hypothesis": { "type": "string" }, "change": { "type": "string" }, "expectedOutcome": { "type": "string" }, "watchFor": { "type": "string" } } }
+          },
+          "observations": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "ts": { "type": "integer" }, "snapshotPath": { "type": "string" }, "verdict": { "type": "string", "enum": ["improved", "no_change", "worse", "unclear"] }, "note": { "type": "string" } } }
+          }
+        }
+      },
+      "AlertStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "notifyUncertain": { "type": "boolean" },
+          "channels": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "label": { "type": "string" }, "type": { "type": "string", "enum": ["slack", "discord"] }, "mode": { "type": "string", "enum": ["webhook", "bot"] }, "enabled": { "type": "boolean" }, "ready": { "type": "boolean" }, "target": { "type": "string", "nullable": true } } }
+          }
+        }
+      },
+      "AlertSendResult": { "type": "object", "properties": { "channel": { "type": "string" }, "ok": { "type": "boolean" }, "detail": { "type": "string" } } }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>print-watch · API docs</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      /* Let Swagger UI use its own light theme on our dark page. */
+      #swagger-ui { background: #fff; margin: 0 auto; max-width: 1100px; }
+      .swagger-note { max-width: 1100px; margin: 14px auto 0; padding: 0 22px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🖨️ print-watch <span class="subtitle">· API docs</span></h1>
+      <nav class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/monitor">Monitor</a>
+        <a href="/docs" class="active">API docs</a>
+      </nav>
+    </header>
+    <p class="swagger-note hint">
+      Interactive OpenAPI reference — try any endpoint with “Try it out”. Raw spec:
+      <a href="/openapi.json">/openapi.json</a>. Swagger UI loads from a CDN; the API itself is fully local.
+    </p>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: "/openapi.json",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          tryItOutEnabled: true,
+          presets: [SwaggerUIBundle.presets.apis],
+        });
+      };
+    </script>
+  </body>
+</html>

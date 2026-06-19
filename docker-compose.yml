@@ -1,0 +1,44 @@
+services:
+  printwatch:
+    build: .
+    image: printjob-llm-webcam-monitor
+    container_name: printwatch
+    ports:
+      - "8787:8787"
+    environment:
+      # Reach an Ollama running on the host (with your existing model + GPU).
+      # On Linux this needs the host-gateway mapping below; on Docker Desktop
+      # (mac/win) host.docker.internal resolves automatically.
+      PW_OLLAMA_URL: http://host.docker.internal:11434
+      PW_MODEL: gemma3:4b
+      # Alerts (optional) — set these to enable Slack/Discord without editing config:
+      # PW_ALERTS_ENABLED: "true"
+      # PW_SLACK_WEBHOOK: ""
+      # PW_DISCORD_WEBHOOK: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Persist snapshots + history, and use your own multi-camera config.
+      - printwatch-data:/data
+      - ./config.json:/app/config.json:ro
+    # USB webcams on a Linux host: uncomment to pass a device through, then set a
+    # camera of type "usb" with usbDevice "/dev/video0" in config.json.
+    # devices:
+    #   - "/dev/video0:/dev/video0"
+    restart: unless-stopped
+
+  # ---- Optional: run Ollama in a container too (fully self-contained stack) ----
+  # Uncomment this service AND switch PW_OLLAMA_URL above to http://ollama:11434.
+  # For GPU, add a deploy.resources.reservations.devices block + the NVIDIA toolkit.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #   restart: unless-stopped
+
+volumes:
+  printwatch-data:
+  # ollama:

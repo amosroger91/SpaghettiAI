@@ -7,6 +7,23 @@ import { FolderSource } from "./folder.js";
 
 export type { CaptureSource } from "./source.js";
 
+/** A configured camera plus its live capture source. */
+export interface CameraEntry {
+  id: string;
+  label: string;
+  source: CaptureSource;
+}
+
+/** Build an ordered registry of capture sources, one per configured camera. */
+export function createCameraRegistry(cameras: CameraConfig[]): Map<string, CameraEntry> {
+  const reg = new Map<string, CameraEntry>();
+  cameras.forEach((cam, i) => {
+    const id = cam.id || `cam${i + 1}`;
+    reg.set(id, { id, label: cam.label || id, source: createCaptureSource(cam) });
+  });
+  return reg;
+}
+
 export function createCaptureSource(cfg: CameraConfig): CaptureSource {
   switch (cfg.type) {
     case "http-snapshot":

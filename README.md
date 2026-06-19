@@ -23,11 +23,18 @@ No cloud · no API keys · no images leave your machine.
 | 🛠️ **"Why did it fail?"** | The model diagnoses your symptom, proposes concrete changes each with a **visually verifiable** success signal, then watches a later snapshot (before vs. after) to confirm the fix actually worked. |
 | 🟢 **"What's on the bed?"** | A one-click read of the printer's state — **empty/clean**, **printing**, **complete** (finished part ready to remove), or **failed** — voted across passes the same way. |
 | 🖨️ **"What printer is this?"** | Identifies the machine in view: motion style (bed-slinger / CoreXY / delta) and enclosure, plus make/model. It **reads the branding off the machine and looks it up online** to name the exact printer instead of guessing (e.g. `ACE GEN2` → Anycubic Kobra X). |
+| 📺 **Live monitor** | A grid dashboard that streams **every camera** at once and re-checks health + bed state on an interval, so you can watch a whole print farm from one tab. |
+| 🔔 **Alerts** | Get a **Slack or Discord** ping the moment a failure is detected — webhook or bot, per channel. |
+
+Run it however you like: **`npm run dev`**, a **desktop app** (Electron), or **Docker** for a headless box watching many cameras.
 
 ## Contents
 
 - [Quick start](#quick-start)
-- [Configure your camera](#configure-your-camera)
+- [Configure your cameras](#configure-your-cameras)
+- [Live monitor](#live-monitor)
+- [Alerts](#alerts)
+- [Run it your way](#run-it-your-way) (desktop · Docker)
 - [Choosing a model](#choosing-a-model)
 - [Printer & bed state](#printer--bed-state)
 - [How it works](#how-it-works)
@@ -48,22 +55,39 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:8787** and click **Check now**. The dashboard loads even before a
-camera is configured — set your URL in `config.json` (below) and you're live.
+Then open:
 
-## Configure your camera
+- **http://127.0.0.1:8787** — the dashboard (single-camera check / troubleshoot)
+- **http://127.0.0.1:8787/monitor** — the [live monitor](#live-monitor) grid (all cameras)
+- **http://127.0.0.1:8787/docs** — interactive [API docs](#api) (Swagger UI)
 
-`printjob-llm-webcam-monitor` is source-agnostic. Set `camera.type` in `config.json`:
+The dashboard loads even before a camera is configured — set one in `config.json` (below).
+
+## Configure your cameras
+
+Cameras live in the `cameras` array in `config.json` — **add as many as you like and mix
+types freely**. Each entry has an `id` (used in the API as `?camera=id`), a `label`, a
+`type`, and that type's field:
+
+```jsonc
+"cameras": [
+  { "id": "kobra",  "label": "Anycubic Kobra X", "type": "usb",           "usbDevice": "video=USB 2.0 Camera" },
+  { "id": "ender",  "label": "Ender 3",          "type": "mjpeg",         "url": "http://octopi.local/webcam/?action=stream" },
+  { "id": "prusa",  "label": "Prusa MK4",        "type": "http-snapshot", "url": "http://prusa.local/snapshot" },
+  { "id": "bench",  "label": "Bench cam",        "type": "folder",        "folderPath": "./incoming" }
+]
+```
 
 | `type`          | Use it for                                                | Set         |
 |-----------------|-----------------------------------------------------------|-------------|
 | `http-snapshot` | OctoPrint `?action=snapshot`, mjpg-streamer, any JPEG URL | `url`       |
 | `mjpeg`         | An MJPEG stream (OctoPrint `?action=stream`)              | `url`       |
-| `usb`           | A webcam on this machine (needs `ffmpeg` on PATH)         | `usbDevice` |
+| `usb`           | A webcam on this machine (needs `ffmpeg`)                  | `usbDevice` |
 | `folder`        | A directory other tools drop snapshots into               | `folderPath`|
 
 > **OctoPrint users:** the webcam is just a normal MJPEG/snapshot endpoint —
 > point `http-snapshot` at `http://<octoprint-host>/webcam/?action=snapshot`.
+> The legacy single `camera: { … }` object still works — it's folded into `cameras` automatically.
 
 ### USB webcam on the host PC
 
@@ -84,7 +108,70 @@ If `ffmpeg` isn't on your `PATH` (e.g. a fresh install in an already-open termin
 point at it with `camera.ffmpegPath` or the `PW_FFMPEG` env var.
 
 Env overrides (no file edit needed): `PW_CAMERA_URL` · `PW_CAMERA_TYPE` · `PW_MODEL` ·
-`PW_OLLAMA_URL` · `PW_PORT` · `PW_FFMPEG`.
+`PW_OLLAMA_URL` · `PW_PORT` · `PW_FFMPEG` (single-camera vars apply to the first camera).
+
+## Live monitor
+
+**http://127.0.0.1:8787/monitor** is a grid that streams **every configured camera** and,
+on a timer you set, re-runs the failure check and bed-state read on each — turning a pile
+of webcams into one glanceable wall.
+
+- Set the interval (default **30 s**), hit **Start monitoring**, or **Run once**.
+- Each tile shows a live frame + colour-coded **health** and **bed** badges, and an
+  **Identify** button for printer detection.
+- Cameras are checked independently, so one printer alerting doesn't stop the others.
+
+> A full 2×2 failure check on a 4B CPU model takes a couple of minutes; the loop waits for
+> a cycle to finish before the next, so the interval is the *gap between* cycles. For many
+> cameras or snappier ticks, lower `check.samples`/`check.frames` or use a GPU.
+
+## Alerts
+
+Get pinged when a failure (or, optionally, an *uncertain* verdict) is detected. **Slack and
+Discord** are supported, each as a **webhook** *or* a **bot (API token)**. Configure under
+`alerts` in `config.json` — but **keep secrets out of the file**; prefer env vars:
+
+| Channel             | Env vars                                            |
+|---------------------|-----------------------------------------------------|
+| Slack webhook       | `PW_SLACK_WEBHOOK`                                  |
+| Slack bot           | `PW_SLACK_BOT_TOKEN` + `PW_SLACK_CHANNEL`           |
+| Discord webhook     | `PW_DISCORD_WEBHOOK`                                |
+| Discord bot         | `PW_DISCORD_BOT_TOKEN` + `PW_DISCORD_CHANNEL` (id)  |
+
+Setting any of these enables that channel automatically. Then send a test from the monitor
+page (**Send test alert**) or `POST /api/alerts/test`. Repeat failures are de-duplicated by
+a `alerts.cooldownMinutes` window so you're not spammed every cycle.
+
+```bash
+# example: alert a Discord channel via webhook
+PW_DISCORD_WEBHOOK="https://discord.com/api/webhooks/…" npm run dev
+```
+
+## Run it your way
+
+**1 · Node (dev)** — `npm run dev`, open the URLs above.
+
+**2 · Desktop app (Electron)** — a standalone window for end users, no terminal needed:
+
+```bash
+npm install          # fetches the Electron runtime
+npm run app          # build + launch the desktop window
+npm run dist         # build an installer (.exe / .dmg / AppImage) into release/
+```
+
+The desktop build keeps snapshots + history in your per-user app-data folder, so it runs
+fine from a read-only install location.
+
+**3 · Docker** — best for a headless box watching lots of network cameras. Ollama runs on
+the host; the container talks to it over `host.docker.internal`:
+
+```bash
+docker compose up --build      # → http://localhost:8787
+```
+
+Edit `config.json` (bind-mounted) to add your cameras; snapshots persist in a named volume.
+For USB passthrough on a Linux host, uncomment the `devices:` block in `docker-compose.yml`.
+A fully self-contained stack (Ollama in a container too) is included commented-out.
 
 ## Choosing a model
 
@@ -144,11 +231,14 @@ legible text it runs a **web lookup** and names the printer from real search res
 | `ai/`        | `VisionProvider` interface, Ollama impl, small-model-tuned prompts & schemas|
 | `analysis/`  | `failureCheck`, `troubleshoot`, `bedState`, and `printerDetect`             |
 | `web/`       | `ddgSearch` — text-only DuckDuckGo lookup used to ground printer make/model |
+| `alerts/`    | Slack/Discord notifiers (webhook + bot) with per-key cooldown               |
 | `store/`     | JSON-file persistence of checks, sessions, bed-states, detections, snapshots|
-| `server/`    | Express API + SSE; serves the static dashboard in `web/`                    |
+| `server/`    | Express API + SSE; multi-camera registry; serves the dashboards in `web/`   |
+| `electron/`  | Desktop wrapper that boots the server in-process and opens a window         |
 
-Add a `VisionProvider` to swap the model backend, or a `CaptureSource` to add a camera —
-nothing else changes.
+Add a `VisionProvider` to swap the model backend, or a `CaptureSource` to add a camera type
+— nothing else changes. Results carry a `cameraId`, so every endpoint is per-camera via
+`?camera=id`.
 
 ## Tuning & accuracy
 
@@ -178,9 +268,14 @@ See [`test/fixtures.json`](test/fixtures.json) for the labeled set and its sourc
 
 ## API
 
+Interactive reference (Swagger UI) at **`/docs`**; raw spec at
+**[`/openapi.json`](web/openapi.json)**. CORS is open so other local tools can call it.
+Every per-camera endpoint accepts `?camera=<id>` (defaults to the first camera).
+
 | Method | Path                                  | Description                          |
 |--------|---------------------------------------|--------------------------------------|
-| GET    | `/api/status`                         | Camera + model health, current config|
+| GET    | `/api/cameras`                        | Configured cameras + each one's latest results |
+| GET    | `/api/status`                         | Model health, camera list, config    |
 | GET    | `/api/snapshot`                       | Live preprocessed frame (JPEG)       |
 | POST   | `/api/check`                          | Run a double-checked failure check   |
 | GET    | `/api/checks`                         | Recent check history                 |
@@ -188,6 +283,8 @@ See [`test/fixtures.json`](test/fixtures.json) for the labeled set and its sourc
 | GET    | `/api/bed-states`                     | Recent bed-state history             |
 | POST   | `/api/printer`                        | Identify the printer (+ web lookup)  |
 | GET    | `/api/printers`                       | Recent printer detections            |
+| GET    | `/api/alerts`                         | Alert config + per-channel readiness |
+| POST   | `/api/alerts/test`                    | Send a test alert to ready channels  |
 | POST   | `/api/troubleshoot`                   | Start an investigation (`{ symptom }`)|
 | POST   | `/api/troubleshoot/:id/verify`        | Verify an applied change worked      |
 | GET    | `/api/sessions` · `/api/sessions/:id` | Troubleshooting sessions             |
@@ -196,15 +293,21 @@ See [`test/fixtures.json`](test/fixtures.json) for the labeled set and its sourc
 ## Development
 
 ```bash
-npm run dev      # watch mode (tsx)
-npm run build    # typecheck + emit to dist/
-npm run smoke    # end-to-end pipeline smoke test
-npm run eval     # accuracy eval against the labeled fixtures
+npm run dev        # watch mode (tsx)
+npm run build      # typecheck + emit to dist/
+npm run app        # build + launch the Electron desktop app
+npm run dist       # build a desktop installer into release/
+npm run docker:up  # build + run via docker compose
+npm run smoke      # end-to-end pipeline smoke test
+npm run eval       # accuracy eval against the labeled fixtures
 ```
 
 ## Roadmap
 
-- [ ] Scheduled background monitoring with desktop / ntfy / Discord alerts
+- [x] Multi-camera monitoring with a live grid dashboard
+- [x] Slack / Discord alerts on failure (webhook + bot)
+- [x] Desktop app + Docker packaging
+- [ ] Scheduled background monitoring (no tab open) + ntfy/email channels
 - [ ] OctoPrint plugin / print-state awareness (only watch while printing)
 - [ ] Optional cloud-model escalation for *uncertain* verdicts
 - [ ] Auto-pause/cancel via OctoPrint API on confirmed failure

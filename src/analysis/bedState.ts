@@ -18,6 +18,7 @@ export async function runBedStateCheck(
   source: CaptureSource,
   ai: VisionProvider,
   cfg: AppConfig,
+  cameraId?: string,
   onProgress?: (msg: string) => void,
 ): Promise<BedStateResult> {
   const id = randomUUID().slice(0, 8);
@@ -51,7 +52,7 @@ export async function runBedStateCheck(
   const occupied = OCCUPIED.includes(state);
   const summary = buildSummary(state, confidence, votes);
 
-  const result: BedStateResult = { id, ts, state, occupied, confidence, summary, votes, samples, snapshotPath };
+  const result: BedStateResult = { id, ts, cameraId, state, occupied, confidence, summary, votes, samples, snapshotPath };
   store.addBedState(result);
   return result;
 }

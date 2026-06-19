@@ -51,6 +51,7 @@ export async function runFailureCheck(
   source: CaptureSource,
   ai: VisionProvider,
   cfg: AppConfig,
+  cameraId?: string,
   onProgress?: (msg: string) => void,
 ): Promise<CheckResult> {
   const id = randomUUID().slice(0, 8);
@@ -134,6 +135,7 @@ export async function runFailureCheck(
   const result: CheckResult = {
     id,
     ts,
+    cameraId,
     verdict,
     confidence,
     issues,

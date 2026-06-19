@@ -56,12 +56,12 @@ class Store {
     this.persist();
   }
 
-  listChecks(limit = 50) {
-    return this.db.checks.slice(0, limit);
+  listChecks(limit = 50, cameraId?: string) {
+    return byCamera(this.db.checks, cameraId).slice(0, limit);
   }
 
-  latestCheck() {
-    return this.db.checks[0];
+  latestCheck(cameraId?: string) {
+    return byCamera(this.db.checks, cameraId)[0];
   }
 
   addBedState(b: BedStateResult) {
@@ -70,12 +70,12 @@ class Store {
     this.persist();
   }
 
-  listBedStates(limit = 50) {
-    return this.db.bedStates.slice(0, limit);
+  listBedStates(limit = 50, cameraId?: string) {
+    return byCamera(this.db.bedStates, cameraId).slice(0, limit);
   }
 
-  latestBedState() {
-    return this.db.bedStates[0];
+  latestBedState(cameraId?: string) {
+    return byCamera(this.db.bedStates, cameraId)[0];
   }
 
   addPrinterDetection(p: PrinterDetectionResult) {
@@ -84,12 +84,12 @@ class Store {
     this.persist();
   }
 
-  listPrinterDetections(limit = 50) {
-    return this.db.printers.slice(0, limit);
+  listPrinterDetections(limit = 50, cameraId?: string) {
+    return byCamera(this.db.printers, cameraId).slice(0, limit);
   }
 
-  latestPrinterDetection() {
-    return this.db.printers[0];
+  latestPrinterDetection(cameraId?: string) {
+    return byCamera(this.db.printers, cameraId)[0];
   }
 
   addSession(s: TroubleshootSession) {
@@ -111,6 +111,11 @@ class Store {
   listSessions() {
     return this.db.sessions;
   }
+}
+
+/** Filter camera-tagged records; no filter (or legacy untagged data) returns all. */
+function byCamera<T extends { cameraId?: string }>(items: T[], cameraId?: string): T[] {
+  return cameraId ? items.filter((x) => x.cameraId === cameraId) : items;
 }
 
 export const store = new Store();

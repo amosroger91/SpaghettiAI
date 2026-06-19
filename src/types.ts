@@ -1,6 +1,10 @@
 // Shared types for print-watch.
 
 export interface CameraConfig {
+  /** Stable identifier used in API paths/queries (e.g. ?camera=kobra). Auto-filled if omitted. */
+  id?: string;
+  /** Human label shown in the UI. Defaults to the id. */
+  label?: string;
   type: "http-snapshot" | "mjpeg" | "usb" | "folder";
   url?: string;
   usbDevice?: string;
@@ -59,14 +63,64 @@ export interface PrinterConfig {
   maxResults: number;
 }
 
+// ---- Alerting ----
+
+export type AlertChannelType = "slack" | "discord";
+/** webhook = an incoming-webhook URL; bot = an API token + target channel. */
+export type AlertChannelMode = "webhook" | "bot";
+
+export interface AlertChannel {
+  type: AlertChannelType;
+  mode: AlertChannelMode;
+  enabled: boolean;
+  /** Friendly name shown in logs / the test endpoint. */
+  label?: string;
+  /** webhook mode: the incoming-webhook URL. */
+  webhookUrl?: string;
+  /** bot mode: the API key/token (Slack `xoxb-…`, Discord bot token). */
+  token?: string;
+  /** bot mode: target channel — Slack `#name` or ID; Discord numeric channel ID. */
+  channel?: string;
+}
+
+export interface AlertsConfig {
+  enabled: boolean;
+  /** Also alert on "uncertain" verdicts, not just confirmed failures. */
+  notifyUncertain: boolean;
+  /** Suppress repeat alerts of the same kind within this many minutes. */
+  cooldownMinutes: number;
+  channels: AlertChannel[];
+}
+
+/** A normalized alert handed to every channel notifier. */
+export interface Alert {
+  /** Stable key for cooldown dedup, e.g. "check:failed" or "bed:failed". */
+  key: string;
+  level: "warning" | "critical";
+  title: string;
+  body: string;
+  ts: number;
+}
+
+/** Per-channel send outcome (returned by the test endpoint). */
+export interface AlertSendResult {
+  channel: string;
+  ok: boolean;
+  detail: string;
+}
+
 export interface AppConfig {
   server: { port: number; host: string };
-  camera: CameraConfig;
+  /** One or more cameras to watch. The legacy single `camera` is normalized into this. */
+  cameras: CameraConfig[];
+  /** @deprecated legacy single-camera field; folded into `cameras` at load time. */
+  camera?: CameraConfig;
   image: ImageConfig;
   ai: AiConfig;
   check: CheckConfig;
   confirm: ConfirmConfig;
   printer: PrinterConfig;
+  alerts: AlertsConfig;
 }
 
 /** One model's vote in the confirmation jury. */
@@ -115,6 +169,8 @@ export interface SinglePass {
 export interface CheckResult {
   id: string;
   ts: number;
+  /** Which camera this result is for (multi-camera deployments). */
+  cameraId?: string;
   verdict: "ok" | "failed" | "uncertain";
   confidence: number;
   issues: IssueFinding[];
@@ -149,6 +205,7 @@ export interface BedStateVote {
 export interface BedStateResult {
   id: string;
   ts: number;
+  cameraId?: string;
   state: BedState;
   /** Convenience: whether anything is on the bed (printing | complete | failed). */
   occupied: boolean;
@@ -196,6 +253,7 @@ export type PrinterIdSource = "vision" | "web";
 export interface PrinterDetectionResult {
   id: string;
   ts: number;
+  cameraId?: string;
   kinematics: PrinterKinematics;
   enclosure: Enclosure;
   brand: string;

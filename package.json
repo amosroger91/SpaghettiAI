@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Watches a webcam pointed at a 3D printer and uses a local vision model to detect and troubleshoot print failures.",
   "type": "module",
+  "main": "electron/main.cjs",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -26,6 +27,11 @@
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "serve": "node dist/index.js",
+    "app": "npm run build && electron electron/main.cjs",
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir",
+    "docker:build": "docker build -t printjob-llm-webcam-monitor .",
+    "docker:up": "docker compose up --build",
     "smoke": "tsx scripts/smoke.ts",
     "fetch-fixtures": "tsx test/fetch-fixtures.ts",
     "eval": "tsx test/eval.ts",
@@ -38,7 +44,19 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
+  },
+  "build": {
+    "appId": "com.amosroger91.printwatch",
+    "productName": "print-watch",
+    "files": ["dist/**/*", "web/**/*", "electron/**/*", "config.json", "package.json", "node_modules/**/*"],
+    "extraMetadata": { "main": "electron/main.cjs" },
+    "directories": { "output": "release" },
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg", "category": "public.app-category.utilities" },
+    "linux": { "target": "AppImage", "category": "Utility" }
   }
 }

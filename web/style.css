@@ -81,3 +81,39 @@ textarea { width: 100%; background: var(--panel2); color: var(--text); border: 1
 .logbox div { padding: 1px 0; }
 
 @media (max-width: 760px) { main { grid-template-columns: 1fr; } .panel.check { grid-column: 1 / -1; } }
+
+/* ---- nav + page chrome ---- */
+.subtitle { color: var(--muted); font-weight: 400; font-size: 14px; }
+.nav { display: flex; align-items: center; gap: 16px; font-size: 14px; }
+.nav a { color: var(--muted); text-decoration: none; }
+.nav a:hover { color: var(--text); }
+.nav a.active { color: var(--accent); font-weight: 600; }
+
+/* ---- printer sources (dashboard) ---- */
+details.sources { margin: 8px 0; font-size: 13px; }
+details.sources summary { cursor: pointer; color: var(--muted); }
+.src { padding: 4px 0 0; }
+.src a { color: var(--accent); text-decoration: none; }
+.src a:hover { text-decoration: underline; }
+
+/* ---- monitor page ---- */
+main.monitor { grid-template-columns: 1fr; }
+.panel.controlbar, .panel.alerts, .panel.log { grid-column: 1 / -1; }
+.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.controls input[type=number] { width: 56px; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font: inherit; }
+button.small { padding: 3px 9px; font-size: 12px; }
+.muted { color: var(--muted); }
+
+/* camera grid */
+.camgrid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.cam { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.cam-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 14px; }
+.cam .frame { min-height: 150px; }
+.cam .frame img { max-height: 240px; }
+.cam-status { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+.badge { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); }
+.badge.ok { border-color: var(--ok); color: var(--ok); }
+.badge.failed { border-color: var(--fail); color: var(--fail); }
+.badge.uncertain { border-color: var(--warn); color: var(--warn); }
+.cam-printer { font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+@media (max-width: 760px) { .camgrid { grid-template-columns: 1fr; } }

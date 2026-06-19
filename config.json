@@ -3,13 +3,15 @@
     "port": 8787,
     "host": "127.0.0.1"
   },
-  "camera": {
-    "comment": "type: 'http-snapshot' (OctoPrint ?action=snapshot or any JPEG URL), 'mjpeg' (MJPEG stream URL), 'usb' (local webcam via ffmpeg), or 'folder' (watch a directory of images). For 'usb', usbDevice is the ffmpeg dshow name (list with: ffmpeg -list_devices true -f dshow -i dummy). ffmpegPath is optional — set it to an absolute ffmpeg path only if ffmpeg is not on your PATH; PW_FFMPEG env var works too.",
-    "type": "usb",
-    "url": "http://localhost:8080/?action=snapshot",
-    "usbDevice": "video=USB 2.0 Camera",
-    "folderPath": "./data/incoming"
-  },
+  "cameras": [
+    {
+      "comment": "One entry per camera — add as many as you like (USB webcams, OctoPrint/MJPEG streams, snapshot URLs, or watched folders) and mix types freely. Each: id (used in API as ?camera=ID), label, type ('http-snapshot' | 'mjpeg' | 'usb' | 'folder'), and that type's field — url / usbDevice / folderPath. For 'usb', usbDevice is the ffmpeg dshow name (list: ffmpeg -list_devices true -f dshow -i dummy); ffmpegPath is optional (or use PW_FFMPEG).",
+      "id": "printer1",
+      "label": "Anycubic Kobra X",
+      "type": "usb",
+      "usbDevice": "video=USB 2.0 Camera"
+    }
+  ],
   "image": {
     "comment": "Preprocessing tuned for small local vision models. maxSize keeps the long edge small so the model sees the whole bed without huge token cost.",
     "maxSize": 1024,
@@ -44,5 +46,17 @@
     "webLookup": true,
     "searchEndpoint": "https://html.duckduckgo.com/html/",
     "maxResults": 5
+  },
+  "alerts": {
+    "comment": "Send a notification when a print failure (or, optionally, an uncertain verdict) is detected. Do NOT commit real tokens/URLs here — prefer the env vars PW_SLACK_WEBHOOK, PW_DISCORD_WEBHOOK, PW_SLACK_BOT_TOKEN + PW_SLACK_CHANNEL, PW_DISCORD_BOT_TOKEN + PW_DISCORD_CHANNEL (and PW_ALERTS_ENABLED=true). Each channel is webhook (incoming-webhook URL) or bot (API token + channel).",
+    "enabled": false,
+    "notifyUncertain": false,
+    "cooldownMinutes": 15,
+    "channels": [
+      { "type": "slack", "mode": "webhook", "enabled": false, "webhookUrl": "" },
+      { "type": "slack", "mode": "bot", "enabled": false, "token": "", "channel": "#3d-prints" },
+      { "type": "discord", "mode": "webhook", "enabled": false, "webhookUrl": "" },
+      { "type": "discord", "mode": "bot", "enabled": false, "token": "", "channel": "" }
+    ]
   }
 }
