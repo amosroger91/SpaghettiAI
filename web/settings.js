@@ -98,13 +98,32 @@ function collectCameras() {
 }
 
 // ---- alert channels ----
+// Each service (Slack/Discord) has two independent channels: a simple webhook (just a
+// URL) and a bot (an API token/secret + a target channel). We render each with clearly
+// labelled fields so it's obvious where the secret goes — collectChannels() reads the
+// .ch-secret / .ch-channel classes, so the markup stays in sync with saving.
+const CHAN_PH = {
+  discord: { token: "Discord bot token", channel: "123456789012345678", webhook: "https://discord.com/api/webhooks/…" },
+  slack: { token: "xoxb-…", channel: "#alerts", webhook: "https://hooks.slack.com/services/…" },
+};
 function chanRow(ch, i) {
-  const secretField = ch.mode === "bot" ? "token" : "webhookUrl";
-  const secretLabel = ch.mode === "bot" ? "Bot token" : "Webhook URL";
+  const ph = CHAN_PH[ch.type] || CHAN_PH.discord;
+  const title = `${ch.type[0].toUpperCase()}${ch.type.slice(1)} · ${ch.mode === "bot" ? "bot (API token)" : "webhook"}`;
+  const head = `<label class="chk"><input type="checkbox" class="ch-en" ${ch.enabled ? "checked" : ""} /> <b>${esc(title)}</b></label>`;
+  if (ch.mode === "bot") {
+    const channelLabel = ch.type === "discord" ? "Channel ID" : "Channel";
+    return `<div class="chanrow" data-i="${i}">
+      ${head}
+      <label class="chanfield">Bot token <span class="muted">(API secret)</span>
+        <input class="ch-secret" type="password" autocomplete="off" placeholder="${esc(ph.token)}" value="${esc(ch.token || "")}" /></label>
+      <label class="chanfield">${channelLabel}
+        <input class="ch-channel" placeholder="${esc(ph.channel)}" value="${esc(ch.channel || "")}" /></label>
+    </div>`;
+  }
   return `<div class="chanrow" data-i="${i}">
-    <label class="chk"><input type="checkbox" class="ch-en" ${ch.enabled ? "checked" : ""} /> <b>${esc(ch.type)}</b> · ${esc(ch.mode)}</label>
-    <input class="ch-secret" placeholder="${secretLabel}" value="${esc(ch[secretField] || "")}" style="flex:1;min-width:200px" />
-    ${ch.mode === "bot" ? `<input class="ch-channel" placeholder="#channel / id" value="${esc(ch.channel || "")}" style="width:130px" />` : ""}
+    ${head}
+    <label class="chanfield">Webhook URL
+      <input class="ch-secret" type="password" autocomplete="off" placeholder="${esc(ph.webhook)}" value="${esc(ch.webhookUrl || "")}" /></label>
   </div>`;
 }
 function renderChannels() {

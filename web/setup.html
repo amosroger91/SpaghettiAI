@@ -34,7 +34,7 @@
           const s = await (await fetch("/api/status")).json();
           if (s.ai && s.ai.ok) {
             state.textContent = "Ready! Opening dashboard…";
-            location.href = "/monitor";
+            location.href = "/";
             return;
           }
           state.textContent = s.ai && s.ai.detail ? s.ai.detail : "Preparing the vision model…";

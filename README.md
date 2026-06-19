@@ -24,7 +24,7 @@ No cloud · no API keys · no images leave your machine (unless you opt into Gem
 Download and launch the latest prebuilt installer — paste into **PowerShell**:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.0/SpaghettiAI-Setup-1.0.0.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.0.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; $u='https://github.com/amosroger91/SpaghettiAI/releases/download/v1.0.2/SpaghettiAI-Setup-1.0.2.exe'; $o="$env:TEMP\SpaghettiAI-Setup-1.0.2.exe"; Invoke-WebRequest $u -OutFile $o -UseBasicParsing; Start-Process $o
 ```
 
 > The `Tls12` prefix is needed on **Windows PowerShell 5.1** (its default TLS is too old for GitHub's download CDN); harmless on PowerShell 7+.
@@ -90,8 +90,7 @@ Already have Ollama? It just checks and pulls the model. Prefer to do it by hand
 
 Then open:
 
-- **http://127.0.0.1:8787** — the dashboard (single-camera check / troubleshoot)
-- **http://127.0.0.1:8787/monitor** — the [live monitor](#live-monitor) grid (all cameras)
+- **http://127.0.0.1:8787** — the dashboard: the all-camera [live monitor](#live-monitor) grid up top, and per-camera tools (check / identify / bed / troubleshoot) below for whichever camera you click
 - **http://127.0.0.1:8787/docs** — interactive [API docs](#api) (Swagger UI)
 
 The dashboard loads even before a camera is configured — set one in `config.json` (below).
@@ -146,13 +145,14 @@ Env overrides (no file edit needed): `PW_CAMERA_URL` · `PW_CAMERA_TYPE` · `PW_
 
 ## Live monitor
 
-**http://127.0.0.1:8787/monitor** is a grid that streams **every configured camera** and,
-on a timer you set, re-runs the failure check and bed-state read on each — turning a pile
-of webcams into one glanceable wall.
+The top of the **dashboard** (**http://127.0.0.1:8787**) is a grid that streams **every
+configured camera** and, on a timer you set, re-runs the failure check and bed-state read on
+each — turning a pile of webcams into one glanceable wall.
 
 - Set the interval (default **30 s**), hit **Start monitoring**, or **Run once**.
-- Each tile shows a live frame + colour-coded **health** and **bed** badges, and an
-  **Identify** button for printer detection.
+- Each tile shows a live frame + colour-coded **health** and **bed** badges.
+- **Click any tile** to select that camera — the panels below (live view, failure check,
+  printer ID, bed state, troubleshoot) all act on the selected camera.
 - Cameras are checked independently, so one printer alerting doesn't stop the others.
 
 > A full 2×2 failure check on a 4B CPU model takes a couple of minutes; the loop waits for
@@ -175,6 +175,14 @@ Discord** are supported, each as a **webhook** *or* a **bot (API token)**. Confi
 Setting any of these enables that channel automatically. Then send a test from the monitor
 page (**Send test alert**) or `POST /api/alerts/test`. Repeat failures are de-duplicated by
 a `alerts.cooldownMinutes` window so you're not spammed every cycle.
+
+> **Discord "bot" vs "webhook":** if your integration handed you a URL like
+> `https://discord.com/api/v10/channels/<id>/messages` **plus a secret**, that's the **bot**
+> path, not a webhook (webhook URLs look like `…/api/webhooks/<id>/<token>`). Use the
+> **Discord bot** channel: the secret is the **bot token** (`PW_DISCORD_BOT_TOKEN`) and the
+> number in the URL is the **channel id** (`PW_DISCORD_CHANNEL`). The token is accepted with
+> or without a leading `Bot ` — SpaghettiAI adds the right scheme itself, so pasting
+> `Bot xxx` no longer double-prefixes into a 401.
 
 ```bash
 # example: alert a Discord channel via webhook
@@ -246,9 +254,14 @@ npm run dist         # build a one-click installer (.exe / .dmg / AppImage) into
 
 On Windows `npm run dist` produces a **one-click `.exe` installer** (NSIS: desktop + start-menu
 shortcuts, launches on finish). On first launch the app runs the **Ollama setup automatically**
-— it shows a setup screen, installs/starts Ollama, pulls the model, then opens the monitor.
+— it shows a setup screen, installs/starts Ollama, pulls the model, then opens the dashboard.
 Data (snapshots, history) lives in your per-user app-data folder, so it runs from a read-only
 install location.
+
+The desktop app **updates itself**: on launch (and every few hours) it checks the GitHub
+releases, downloads a newer installer in the background, and offers to restart — the new
+version replaces the old one and reopens. Releases are built and published automatically by
+[GitHub Actions](.github/workflows/build.yml) whenever a `v*` tag is pushed.
 
 > Building the installer on Windows needs **Developer Mode on** (or an elevated shell) — that's
 > an [electron-builder requirement](https://www.electron.build/) for unpacking its signing

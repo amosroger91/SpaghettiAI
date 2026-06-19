@@ -7,6 +7,13 @@ import type { Alert, AlertChannel, AlertSendResult, AlertsConfig } from "../type
 
 const EMOJI: Record<Alert["level"], string> = { warning: "⚠️", critical: "🚨" };
 
+/** Users often paste a bot token with its scheme already attached ("Bot xxx" /
+ *  "Bearer xxx"). Strip a leading scheme so we — not them — control the prefix,
+ *  otherwise the header becomes "Bot Bot xxx" and Discord/Slack 401s. */
+function bareToken(token?: string): string {
+  return (token ?? "").replace(/^\s*(Bot|Bearer)\s+/i, "").trim();
+}
+
 export function channelLabel(ch: AlertChannel): string {
   return ch.label ? `${ch.type}:${ch.mode} (${ch.label})` : `${ch.type}:${ch.mode}`;
 }
@@ -37,7 +44,7 @@ async function sendSlack(ch: AlertChannel, alert: Alert): Promise<void> {
   const res = await postJson(
     "https://slack.com/api/chat.postMessage",
     { channel: ch.channel, text },
-    { authorization: `Bearer ${ch.token}` },
+    { authorization: `Bearer ${bareToken(ch.token)}` },
   );
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
   if (!data.ok) throw new Error(`slack api error: ${data.error ?? res.status}`);
@@ -54,7 +61,7 @@ async function sendDiscord(ch: AlertChannel, alert: Alert): Promise<void> {
   const res = await postJson(
     `https://discord.com/api/v10/channels/${ch.channel}/messages`,
     { content },
-    { authorization: `Bot ${ch.token}` },
+    { authorization: `Bot ${bareToken(ch.token)}` },
   );
   if (!res.ok) throw new Error(`discord api ${res.status}: ${(await res.text()).slice(0, 200)}`);
 }

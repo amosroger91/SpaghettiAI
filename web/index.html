@@ -11,23 +11,47 @@
       <h1>🍝 SpaghettiAI <span class="subtitle">· your print's AI watchdog</span></h1>
       <nav class="nav">
         <a href="/" class="active">Dashboard</a>
-        <a href="/monitor">Monitor</a>
         <a href="/settings">Settings</a>
         <a href="/docs">API docs</a>
         <span id="status" class="status">connecting…</span>
       </nav>
     </header>
 
-    <main>
-      <section class="panel preview">
+    <main class="dashboard">
+      <!-- ===== Live monitor: all cameras at a glance ===== -->
+      <section class="panel controlbar">
         <div class="panel-head">
-          <h2>Live view</h2>
-          <label class="toggle"><input type="checkbox" id="autorefresh" checked /> auto-refresh</label>
+          <h2>Live monitor — <span id="camCount">0</span> camera(s)</h2>
+          <div class="controls">
+            <label class="toggle">every
+              <input type="number" id="interval" min="5" step="5" value="30" /> s
+            </label>
+            <button id="toggleBtn" class="primary">▶ Start monitoring</button>
+            <button id="runBtn">Run once</button>
+          </div>
         </div>
-        <div class="frame">
-          <img id="preview" alt="camera preview" />
+        <p class="hint"><span id="cycleState">Idle.</span> <span id="lastRun"></span>
+          &nbsp;·&nbsp; Click a camera below to inspect it in detail.</p>
+        <details class="angle-tip">
+          <summary>📐 Best camera angle for accurate detection</summary>
+          <ul>
+            <li><b>Frame the whole bed.</b> The print plate should fill most of the view, roughly head-on or at a slight downward angle (~15–30°) — not edge-on.</li>
+            <li><b>Keep it well lit and in focus.</b> Even, diffuse light; avoid glare, deep shadow, and backlight from a window.</li>
+            <li><b>Mount it steady</b> and clear of the moving gantry, so frames aren't blurred or blocked mid-print.</li>
+            <li><b>Show the print, not just the machine.</b> If the nozzle or a part hides the object, the model can't judge it — favor a side that keeps the part visible.</li>
+            <li><b>Plain background.</b> Fewer competing objects behind the printer means fewer false "spaghetti" reads.</li>
+          </ul>
+        </details>
+      </section>
+
+      <div id="grid" class="camgrid"></div>
+
+      <section class="panel alerts">
+        <div class="panel-head">
+          <h2>Alerts</h2>
+          <button id="testAlertBtn">Send test alert</button>
         </div>
-        <p class="hint">This is the preprocessed frame exactly as the model sees it.</p>
+        <div id="alertStatus" class="result empty">loading…</div>
       </section>
 
       <section class="panel phone">
@@ -40,6 +64,23 @@
           <div class="frame" style="text-align:center"><img id="phoneQr" alt="phone pairing QR" style="max-width:240px" /></div>
           <div id="phoneUrls" class="hint"></div>
         </div>
+      </section>
+
+      <!-- ===== Selected-camera detail ===== -->
+      <section class="panel detail-head">
+        <h2>Inspecting: <span id="selectedLabel">—</span></h2>
+        <p class="hint">The actions below run against the selected camera. Pick a different one by clicking its tile above.</p>
+      </section>
+
+      <section class="panel preview">
+        <div class="panel-head">
+          <h2>Live view</h2>
+          <label class="toggle"><input type="checkbox" id="autorefresh" checked /> auto-refresh</label>
+        </div>
+        <div class="frame">
+          <img id="preview" alt="camera preview" />
+        </div>
+        <p class="hint">This is the preprocessed frame exactly as the model sees it.</p>
       </section>
 
       <section class="panel check">
@@ -87,6 +128,10 @@
       </section>
     </main>
 
-    <script src="/app.js"></script>
+    <div id="nobedOverlay" class="nobed-overlay hidden">
+      <div class="nobed-msg">⛔ No bed detected<span id="nobedWhich"></span><small>Point the camera at the printer's bed, or check it's connected.</small></div>
+    </div>
+
+    <script src="/dashboard.js"></script>
   </body>
 </html>

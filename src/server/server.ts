@@ -400,7 +400,8 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   });
 
   // --- convenience routes for the extra pages ---
-  app.get("/monitor", (_req, res) => res.sendFile(join(ROOT, "web", "monitor.html")));
+  // The monitor was merged into the dashboard (/) — keep the old path working.
+  app.get("/monitor", (_req, res) => res.redirect(301, "/"));
   app.get("/docs", (_req, res) => res.sendFile(join(ROOT, "web", "docs.html")));
   app.get("/settings", (_req, res) => res.sendFile(join(ROOT, "web", "settings.html")));
   app.get("/phone", (_req, res) => res.sendFile(join(ROOT, "web", "phone.html")));

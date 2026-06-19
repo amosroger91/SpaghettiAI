@@ -11,7 +11,6 @@
       <h1>🍝 SpaghettiAI <span class="subtitle">· settings</span></h1>
       <nav class="nav">
         <a href="/">Dashboard</a>
-        <a href="/monitor">Monitor</a>
         <a href="/settings" class="active">Settings</a>
         <a href="/docs">API docs</a>
       </nav>
@@ -81,8 +80,13 @@
         <label class="chk"><input type="checkbox" id="alerts_notifyUncertain" /> Also alert on <i>uncertain</i> verdicts</label>
         <label>Cooldown (min) <input id="alerts_cooldownMinutes" type="number" min="0" style="width:80px" /></label>
         <div id="channels"></div>
-        <p class="hint">Leave a secret field blank or showing <code>••••••</code> to keep the stored value.
-          You can also set tokens via env vars (see README).</p>
+        <p class="hint">Each service can alert via a <b>Webhook URL</b> (simplest — no API secret) or a
+          <b>Bot</b> (an API token/secret + the target channel). For a Discord bot you need the
+          <b>bot token</b> and the numeric <b>channel ID</b> (enable Developer Mode → right-click the
+          channel → Copy ID). If you were given a <code>…/channels/&lt;id&gt;/messages</code> URL plus a
+          secret, that's the <b>bot</b> path: the secret is the token, the number is the channel ID — pasting
+          it with or without a leading <code>Bot&nbsp;</code> both work. Leave a secret blank or showing
+          <code>••••••</code> to keep the stored value; tokens can also come from env vars (see README).</p>
       </section>
 
       <div class="saverow">

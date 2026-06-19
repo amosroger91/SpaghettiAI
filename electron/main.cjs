@@ -1,7 +1,9 @@
 // Electron wrapper that boots the print-watch server in-process and shows the
 // dashboard in a desktop window. Build first (`npm run build`) so dist/ exists.
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, dialog } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const path = require("node:path");
+const fs = require("node:fs");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
@@ -66,24 +68,65 @@ function bootstrapOllama() {
 }
 
 function createWindow(ready) {
+  // Use the spaghetti icon for the window/taskbar in dev runs; the packaged app
+  // gets its icon from the executable that electron-builder stamps with build/icon.ico.
+  const iconPath = path.join(__dirname, "icon.png");
   const win = new BrowserWindow({
     width: 1200,
     height: 920,
     title: "SpaghettiAI",
+    ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
     backgroundColor: "#0f1115",
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
   // If the model isn't ready, show the setup screen (it polls and redirects to the
-  // monitor once Ollama + the model are up); otherwise go straight to the monitor.
-  win.loadURL(`http://${HOST}:${PORT}/${ready ? "monitor" : "setup.html"}`);
+  // dashboard once Ollama + the model are up); otherwise go straight to the dashboard.
+  win.loadURL(`http://${HOST}:${PORT}/${ready ? "" : "setup.html"}`);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http")) shell.openExternal(url);
     return { action: "deny" };
   });
+  return win;
+}
+
+// Self-update: check the GitHub releases (configured via build.publish, baked into
+// app-update.yml), download a newer installer in the background, and — on the user's
+// OK — run it. The NSIS installer removes the current version and installs the new one
+// fresh, then relaunches. Only meaningful in a packaged build.
+function setupAutoUpdate(win) {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true; // fallback: apply on next quit if not now
+  const log = (m) => console.log(`[update] ${m}`);
+  autoUpdater.on("checking-for-update", () => log("checking GitHub for a newer release…"));
+  autoUpdater.on("update-available", (info) => log(`update available: v${info.version} — downloading`));
+  autoUpdater.on("update-not-available", () => log("already on the latest version"));
+  autoUpdater.on("download-progress", (p) => log(`downloading ${Math.round(p.percent)}%`));
+  autoUpdater.on("error", (err) => console.error("[update] error:", (err && (err.stack || err.message)) || err));
+  autoUpdater.on("update-downloaded", async (info) => {
+    log(`v${info.version} downloaded — prompting to install`);
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info",
+      buttons: ["Restart & update now", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+      title: "Update ready",
+      message: `SpaghettiAI ${info.version} is ready to install.`,
+      detail: "The app will close, replace the current version with the new one, and reopen.",
+    });
+    if (response === 0) setImmediate(() => autoUpdater.quitAndInstall());
+  });
+
+  const check = () => autoUpdater.checkForUpdates().catch((e) => console.error("[update] check failed:", (e && e.message) || e));
+  check();
+  setInterval(check, 6 * 60 * 60 * 1000); // re-check every 6 h while the app stays open
 }
 
 app.whenReady().then(async () => {
+  // Windows groups taskbar entries (and picks their icon) by AppUserModelID. Without
+  // this the running process falls back to the generic Electron taskbar icon even
+  // though the window icon is correct. Must match build.appId / the installer's AUMID.
+  app.setAppUserModelId("com.amosroger91.spaghettiai");
   try {
     await startServer();
     await waitForServer();
@@ -92,7 +135,8 @@ app.whenReady().then(async () => {
   }
   const ready = await modelReady();
   if (!ready) bootstrapOllama();
-  createWindow(ready);
+  const win = createWindow(ready);
+  if (app.isPackaged) setupAutoUpdate(win);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(true);
   });

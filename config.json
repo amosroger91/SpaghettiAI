@@ -5,15 +5,13 @@
   },
   "cameras": [
     {
-      "comment": "One entry per camera — add as many as you like (USB webcams, OctoPrint/MJPEG streams, snapshot URLs, or watched folders) and mix types freely. Each: id (used in API as ?camera=ID), label, type ('http-snapshot' | 'mjpeg' | 'usb' | 'folder'), and that type's field — url / usbDevice / folderPath. For 'usb', usbDevice is the ffmpeg dshow name (list: ffmpeg -list_devices true -f dshow -i dummy); ffmpegPath is optional (or use PW_FFMPEG).",
-      "id": "printer1",
       "label": "Anycubic Kobra X",
+      "id": "printer1",
       "type": "usb",
       "usbDevice": "video=USB 2.0 Camera"
     }
   ],
   "image": {
-    "comment": "Preprocessing tuned for small local vision models. maxSize keeps the long edge small so the model sees the whole bed without huge token cost.",
     "maxSize": 1024,
     "crop": null,
     "normalize": true,
@@ -23,12 +21,11 @@
     "provider": "ollama",
     "baseUrl": "http://localhost:11434",
     "model": "gemma3:4b",
-    "comment": "Any Ollama vision model works: gemma3:4b (installed), qwen2.5vl:7b, llava:7b, llama3.2-vision:11b, moondream.",
     "temperature": 0,
-    "numCtx": 4096
+    "numCtx": 4096,
+    "apiKey": ""
   },
   "check": {
-    "comment": "Double-check controls. samples = self-consistency votes per frame; frames = cross-frame captures; frameDelayMs = gap between frames; confidenceThreshold = below this, result is flagged 'uncertain'.",
     "samples": 2,
     "frames": 2,
     "frameDelayMs": 4000,
@@ -36,37 +33,61 @@
     "sampleTemperature": 0.6
   },
   "confirm": {
-    "comment": "Second-opinion jury. When the primary model suspects a failure, these other local vision models vote to confirm. Add any pulled Ollama vision models, e.g. qwen2.5vl:7b, llava:7b, llama3.2-vision. Empty list = self-check only.",
     "enabled": true,
-    "models": ["moondream"],
+    "models": [
+      "moondream"
+    ],
     "samplesPerJuror": 1
   },
   "printer": {
-    "comment": "Printer-detection web lookup. When the vision model reads branding off the machine, search that TEXT (never the image) to pin down the exact make/model. Set webLookup:false for fully offline, vision-only detection.",
     "webLookup": true,
     "searchEndpoint": "https://html.duckduckgo.com/html/",
     "maxResults": 5
   },
   "alerts": {
-    "comment": "Send a notification when a print failure (or, optionally, an uncertain verdict) is detected. Do NOT commit real tokens/URLs here — prefer the env vars PW_SLACK_WEBHOOK, PW_DISCORD_WEBHOOK, PW_SLACK_BOT_TOKEN + PW_SLACK_CHANNEL, PW_DISCORD_BOT_TOKEN + PW_DISCORD_CHANNEL (and PW_ALERTS_ENABLED=true). Each channel is webhook (incoming-webhook URL) or bot (API token + channel).",
-    "enabled": false,
+    "enabled": true,
     "notifyUncertain": false,
     "cooldownMinutes": 15,
     "channels": [
-      { "type": "slack", "mode": "webhook", "enabled": false, "webhookUrl": "" },
-      { "type": "slack", "mode": "bot", "enabled": false, "token": "", "channel": "#3d-prints" },
-      { "type": "discord", "mode": "webhook", "enabled": false, "webhookUrl": "" },
-      { "type": "discord", "mode": "bot", "enabled": false, "token": "", "channel": "" }
+      {
+        "type": "slack",
+        "mode": "webhook",
+        "enabled": false,
+        "webhookUrl": ""
+      },
+      {
+        "type": "slack",
+        "mode": "bot",
+        "enabled": false,
+        "token": "",
+        "channel": "#3d-prints"
+      },
+      {
+        "type": "discord",
+        "mode": "webhook",
+        "enabled": false,
+        "webhookUrl": ""
+      },
+      {
+        "type": "discord",
+        "mode": "bot",
+        "enabled": false,
+        "token": "",
+        "channel": ""
+      }
     ]
   },
   "mcp": {
-    "comment": "Optional MCP server exposing the cameras/checks/alerts as tools for MCP clients (Claude Desktop/Code). Off by default; enable here or with PW_MCP_ENABLED=true, then run `npm run mcp`. 'target' is the running print-watch HTTP API the tools call (defaults to this instance).",
     "enabled": false,
-    "target": ""
+    "target": "http://127.0.0.1:8787"
   },
   "webcam": {
-    "comment": "Optional mjpg-streamer-compatible webcam server so OctoPrint (or anything expecting ?action=snapshot / ?action=stream) can consume a USB cam attached to THIS machine. Snapshot: /webcam?action=snapshot&camera=ID  ·  Stream: /webcam?action=stream&camera=ID. Set enabled:false to turn off.",
     "enabled": true,
     "fps": 5
+  },
+  "phone": {
+    "enabled": true,
+    "httpsPort": 8788,
+    "staleMs": 10000
   }
 }

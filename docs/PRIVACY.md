@@ -82,7 +82,7 @@ then move everything across:
    internet; for an air-gapped box use a future local channel (e.g. ntfy on the LAN) once
    available.
 5. **Avoid the `/docs` page**, or vendor Swagger UI locally so it doesn't hit the CDN.
-   The dashboard (`/`), monitor (`/monitor`), and settings (`/settings`) pages are fully
+   The dashboard (`/`) and settings (`/settings`) pages are fully
    self-contained and work offline as-is. (Vendoring Swagger UI is on the hardening
    roadmap; until then, the raw spec is always available at `/openapi.json`.)
 6. **Bind to localhost** (the default `server.host: 127.0.0.1`) unless you deliberately
