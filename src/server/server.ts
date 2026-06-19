@@ -2,10 +2,16 @@ import express from "express";
 import type { Request } from "express";
 import { EventEmitter } from "node:events";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
+import type { Server as HttpServer } from "node:http";
+import type { Server as HttpsServer } from "node:https";
 import { join } from "node:path";
+import { WebSocketServer, type WebSocket } from "ws";
+import QRCode from "qrcode";
 import { ROOT, publicConfig, saveConfig } from "../config.js";
 import type { AppConfig } from "../types.js";
-import type { CameraEntry } from "../capture/index.js";
+import { registerPushCamera, PushSource, type CameraEntry } from "../capture/index.js";
+import { lanIPv4 } from "./tls.js";
 import type { VisionProvider } from "../ai/provider.js";
 import { store } from "../store/store.js";
 import { prepareImage } from "../image/preprocess.js";
@@ -30,13 +36,15 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   app.options(/.*/, (_req, res) => res.sendStatus(204));
 
   const alerts = new AlertManager(cfg.alerts);
-  const cameraList = [...cameras.values()];
-  const defaultId = cameraList[0]?.id;
+  // Cameras can appear/disappear at runtime (phones pair dynamically), so read the
+  // registry live rather than snapshotting it at construction.
+  const liveList = () => [...cameras.values()];
+  const defaultId = () => cameras.keys().next().value as string | undefined;
 
   // Resolve the target camera from ?camera=ID (defaults to the first configured one).
   const resolve = (req: Request): CameraEntry | undefined => {
-    const id = String(req.query.camera ?? "") || defaultId;
-    return cameras.get(id);
+    const id = String(req.query.camera ?? "") || defaultId();
+    return id ? cameras.get(id) : undefined;
   };
   // Per-camera, per-operation busy flags so two cameras can run concurrently while a
   // single camera can't overlap its own checks.
@@ -107,11 +115,13 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   // --- cameras ---
   app.get("/api/cameras", (_req, res) => {
     res.json(
-      cameraList.map((c) => ({
+      liveList().map((c) => ({
         id: c.id,
         label: c.label,
         kind: c.source.kind,
         describe: c.source.describe(),
+        // Push (phone) cameras report live connectivity so the UI can show offline.
+        online: c.source instanceof PushSource ? c.source.connected : true,
         latest: store.latestCheck(c.id) ?? null,
         latestBedState: store.latestBedState(c.id) ?? null,
         latestPrinter: store.latestPrinterDetection(c.id) ?? null,
@@ -122,18 +132,19 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
   // --- status / health ---
   app.get("/api/status", async (_req, res) => {
     const health = await ai.health();
-    const first = cameraList[0];
+    const list = liveList();
+    const first = list[0];
     res.json({
       // legacy single-camera fields point at the first camera for back-compat
       camera: first?.source.describe() ?? "none",
       cameraKind: first?.source.kind ?? "none",
-      cameras: cameraList.map((c) => ({ id: c.id, label: c.label, kind: c.source.kind })),
+      cameras: list.map((c) => ({ id: c.id, label: c.label, kind: c.source.kind })),
       ai: { name: ai.name, ...health },
       check: cfg.check,
       alerts: { enabled: cfg.alerts.enabled },
-      latest: store.latestCheck(defaultId) ?? null,
-      latestBedState: store.latestBedState(defaultId) ?? null,
-      latestPrinter: store.latestPrinterDetection(defaultId) ?? null,
+      latest: store.latestCheck(defaultId()) ?? null,
+      latestBedState: store.latestBedState(defaultId()) ?? null,
+      latestPrinter: store.latestPrinterDetection(defaultId()) ?? null,
     });
   });
 
@@ -364,16 +375,77 @@ export function createServer(cfg: AppConfig, cameras: Map<string, CameraEntry>, 
     }
   });
 
+  // --- "use your phone as a camera" ---
+  // Candidate URLs the phone can open (HTTPS, since getUserMedia needs a secure
+  // context). One per LAN address; the dashboard renders the first as a QR code.
+  const phoneUrls = () => {
+    const port = cfg.phone.httpsPort;
+    const ips = lanIPv4();
+    return (ips.length ? ips : ["localhost"]).map((ip) => `https://${ip}:${port}/phone`);
+  };
+
+  app.get("/api/phone/info", (_req, res) => {
+    res.json({ enabled: cfg.phone.enabled, httpsPort: cfg.phone.httpsPort, urls: phoneUrls() });
+  });
+
+  // PNG QR code for the pairing URL (defaults to the first LAN URL; override with ?url=).
+  app.get("/api/phone/qr", async (req, res) => {
+    const url = String(req.query.url ?? "") || phoneUrls()[0];
+    try {
+      const png = await QRCode.toBuffer(url, { type: "png", margin: 1, width: 320 });
+      res.set("Content-Type", "image/png").set("Cache-Control", "no-store").send(png);
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
   // --- convenience routes for the extra pages ---
   app.get("/monitor", (_req, res) => res.sendFile(join(ROOT, "web", "monitor.html")));
   app.get("/docs", (_req, res) => res.sendFile(join(ROOT, "web", "docs.html")));
   app.get("/settings", (_req, res) => res.sendFile(join(ROOT, "web", "settings.html")));
+  app.get("/phone", (_req, res) => res.sendFile(join(ROOT, "web", "phone.html")));
 
   // --- static: snapshots + dashboard (also serves openapi.json) ---
   app.use("/snapshots", express.static(store.snapshotDir(), { maxAge: 0 }));
   app.use("/", express.static(join(ROOT, "web")));
 
-  return { app, bus };
+  /**
+   * Attach the phone ingest WebSocket to an HTTP/HTTPS server. A phone connects to
+   * /ws/ingest?id=<deviceId>&label=<name>, then streams binary JPEG frames. Each
+   * connection registers (or reuses, on reconnect) a push camera so the phone shows
+   * up as a normal camera everywhere. Can be attached to multiple servers (e.g. the
+   * HTTPS phone server and the local HTTP server) — they share this one handler.
+   */
+  const attachIngest = (server: HttpServer | HttpsServer) => {
+    const wss = new WebSocketServer({ server, path: "/ws/ingest" });
+    wss.on("connection", (ws: WebSocket, req) => {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      // Stable, sanitized device id → stable camera id across reconnects.
+      const device = (url.searchParams.get("id") || randomUUID()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32) || randomUUID();
+      const label = (url.searchParams.get("label") || "Phone camera").slice(0, 40);
+      const camId = `phone-${device}`;
+      const wasKnown = cameras.has(camId);
+
+      const source = registerPushCamera(cameras, camId, label, cfg.phone.staleMs);
+      emit("phone:paired", { cameraId: camId, label, reconnect: wasKnown });
+      if (!wasKnown) emit("camera:added", { cameraId: camId, label });
+
+      ws.send(JSON.stringify({ type: "paired", cameraId: camId, label }));
+
+      ws.on("message", (data: Buffer | ArrayBuffer | Buffer[], isBinary: boolean) => {
+        if (isBinary) {
+          const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data);
+          if (buf.length > 100) source.push(buf);
+        }
+        // text frames (heartbeats / metadata) are currently ignored
+      });
+      ws.on("close", () => emit("phone:unpaired", { cameraId: camId }));
+      ws.on("error", () => {});
+    });
+    return wss;
+  };
+
+  return { app, bus, attachIngest };
 }
 
 /** Read host specs and suggest an Ollama vision model sized to the machine's RAM. */

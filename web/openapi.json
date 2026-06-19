@@ -15,9 +15,26 @@
     { "name": "printer", "description": "What printer is this?" },
     { "name": "troubleshoot", "description": "Why did it fail, and did my fix work?" },
     { "name": "alerts", "description": "Slack / Discord notifications" },
-    { "name": "webcam", "description": "mjpg-streamer-compatible feed for OctoPrint" }
+    { "name": "webcam", "description": "mjpg-streamer-compatible feed for OctoPrint" },
+    { "name": "phone", "description": "Use a phone as a camera (pair over WebSocket)" }
   ],
   "paths": {
+    "/api/phone/info": {
+      "get": {
+        "tags": ["phone"],
+        "summary": "Phone-pairing info: HTTPS URLs to open on the phone",
+        "description": "The phone capture page is served over HTTPS (self-signed) on a separate port so the browser's getUserMedia works. Open one of these URLs on a phone, then it streams frames to `/ws/ingest` (WebSocket) and appears as a push camera. WebSockets aren't expressible in OpenAPI — connect to `wss://<host>:<phonePort>/ws/ingest?id=<deviceId>&label=<name>` and send binary JPEG frames.",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "httpsPort": { "type": "integer" }, "urls": { "type": "array", "items": { "type": "string" } } } } } } } }
+      }
+    },
+    "/api/phone/qr": {
+      "get": {
+        "tags": ["phone"],
+        "summary": "PNG QR code for the phone-pairing URL",
+        "parameters": [{ "name": "url", "in": "query", "required": false, "schema": { "type": "string" }, "description": "URL to encode; defaults to the first LAN HTTPS URL." }],
+        "responses": { "200": { "description": "PNG image", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } } } } }
+      }
+    },
     "/api/cameras": {
       "get": {
         "tags": ["cameras"],

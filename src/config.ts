@@ -24,6 +24,7 @@ const DEFAULTS: AppConfig = {
   alerts: { enabled: false, notifyUncertain: false, cooldownMinutes: 15, channels: [] },
   mcp: { enabled: false, target: "" },
   webcam: { enabled: true, fps: 5 },
+  phone: { enabled: true, httpsPort: 8788, staleMs: 10000 },
 };
 
 /** Recursively drop "comment" keys so docs in config.json don't leak into the API. */
@@ -75,6 +76,8 @@ function load(): AppConfig {
   const geminiKey = process.env.PW_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   if (geminiKey) raw.ai.apiKey = geminiKey;
   if (process.env.PW_PORT) raw.server.port = Number(process.env.PW_PORT);
+  if (process.env.PW_PHONE_PORT) raw.phone.httpsPort = Number(process.env.PW_PHONE_PORT);
+  if (process.env.PW_PHONE_ENABLED) raw.phone.enabled = process.env.PW_PHONE_ENABLED !== "false";
   applyAlertEnv(raw.alerts.channels);
   if (process.env.PW_ALERTS_ENABLED) raw.alerts.enabled = process.env.PW_ALERTS_ENABLED !== "false";
   else if (raw.alerts.channels.some((c) => c.enabled)) raw.alerts.enabled = true;

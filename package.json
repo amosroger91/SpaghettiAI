@@ -36,6 +36,7 @@
     "docker:build": "docker build -t printjob-llm-webcam-monitor .",
     "docker:up": "docker compose up --build",
     "smoke": "tsx scripts/smoke.ts",
+    "smoke:phone": "npm run build && node scripts/phone-smoke.mjs",
     "fetch-fixtures": "tsx test/fetch-fixtures.ts",
     "eval": "tsx test/eval.ts",
     "test": "node --test --import tsx test/*.test.ts"
@@ -43,12 +44,17 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0",
     "sharp": "^0.33.4",
+    "ws": "^8.21.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/ws": "^8.18.1",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
     "tsx": "^4.16.0",
@@ -57,11 +63,27 @@
   "build": {
     "appId": "com.amosroger91.spaghettiai",
     "productName": "SpaghettiAI",
-    "files": ["dist/**/*", "web/**/*", "electron/**/*", "scripts/ensure-ollama.mjs", "config.json", "package.json", "node_modules/**/*"],
-    "asarUnpack": ["scripts/**/*"],
-    "extraMetadata": { "main": "electron/main.cjs" },
-    "directories": { "output": "release" },
-    "win": { "target": "nsis" },
+    "files": [
+      "dist/**/*",
+      "web/**/*",
+      "electron/**/*",
+      "scripts/ensure-ollama.mjs",
+      "config.json",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "scripts/**/*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
@@ -69,7 +91,13 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "mac": { "target": "dmg", "category": "public.app-category.utilities" },
-    "linux": { "target": "AppImage", "category": "Utility" }
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
   }
 }

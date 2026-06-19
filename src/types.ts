@@ -5,7 +5,7 @@ export interface CameraConfig {
   id?: string;
   /** Human label shown in the UI. Defaults to the id. */
   label?: string;
-  type: "http-snapshot" | "mjpeg" | "usb" | "folder";
+  type: "http-snapshot" | "mjpeg" | "usb" | "folder" | "push";
   url?: string;
   usbDevice?: string;
   folderPath?: string;
@@ -125,6 +125,21 @@ export interface McpConfig {
   target: string;
 }
 
+/**
+ * "Use your phone as a camera." A phone opens /phone, streams JPEG frames over a
+ * WebSocket, and is registered as a live (push) camera — so checks, bed-state,
+ * printer-detect and the /webcam MJPEG endpoint all work against it transparently.
+ * Because getUserMedia needs a secure context, the phone page is served over HTTPS
+ * (self-signed) on a second port; the desktop HTTP server is left as-is.
+ */
+export interface PhoneConfig {
+  enabled: boolean;
+  /** HTTPS port for the phone capture page + ingest socket (self-signed cert). */
+  httpsPort: number;
+  /** A push camera is considered offline if no frame arrived within this window. */
+  staleMs: number;
+}
+
 export interface AppConfig {
   server: { port: number; host: string };
   /** One or more cameras to watch. The legacy single `camera` is normalized into this. */
@@ -139,6 +154,7 @@ export interface AppConfig {
   alerts: AlertsConfig;
   mcp: McpConfig;
   webcam: WebcamServerConfig;
+  phone: PhoneConfig;
 }
 
 /** One model's vote in the confirmation jury. */

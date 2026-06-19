@@ -35,6 +35,7 @@ No cloud · no API keys · no images leave your machine (unless you opt into Gem
 | 📺 **Live monitor** | A grid dashboard that streams **every camera** at once and re-checks health + bed state on an interval, so you can watch a whole print farm from one tab. |
 | 🔔 **Alerts** | Get a **Slack or Discord** ping the moment a failure is detected — webhook or bot, per channel. |
 | 🎥 **OctoPrint feed** | Re-serves any camera in **mjpg-streamer format**, so a USB cam on this box becomes an OctoPrint webcam. |
+| 📱 **Phone as a camera** | **No webcam? Use an old phone.** Scan a QR, and the phone streams its camera in — it becomes a normal camera (checks, bed state, alerts) and can even be re-served to OctoPrint. |
 | 🤖 **MCP server** | Optional [MCP](https://modelcontextprotocol.io) server — drive everything from Claude or any MCP client by voice/chat. |
 
 Run it however you like: **`npm run dev`**, a one-click **desktop app** (Electron), or **Docker** for a headless box watching many cameras.
@@ -45,6 +46,7 @@ Run it however you like: **`npm run dev`**, a one-click **desktop app** (Electro
 - [Configure your cameras](#configure-your-cameras)
 - [Live monitor](#live-monitor)
 - [Alerts](#alerts)
+- [Use a phone as a camera](#use-a-phone-as-a-camera) (turn an old phone into a printer monitor)
 - [Feed OctoPrint](#feed-octoprint) (use a USB cam as an OctoPrint webcam)
 - [Run it your way](#run-it-your-way) (desktop · Docker)
 - [MCP server](#mcp-server) (use it from Claude / any MCP client)
@@ -163,6 +165,42 @@ a `alerts.cooldownMinutes` window so you're not spammed every cycle.
 # example: alert a Discord channel via webhook
 PW_DISCORD_WEBHOOK="https://discord.com/api/webhooks/…" npm run dev
 ```
+
+## Use a phone as a camera
+
+**Don't have a webcam sitting around? Use an old phone.** A spare phone (or tablet) is a
+great printer cam — decent optics, its own battery, and it sits on a shelf instead of in a
+drawer. Point it at the printer and it streams straight into SpaghettiAI:
+
+1. Open the dashboard and, under **📱 Use your phone as a camera**, click **Show QR**.
+2. **Scan it with the phone.** The pairing page is served over **HTTPS** (browsers only allow
+   camera access on a secure origin), so you'll see a one-time **"not secure" warning** from
+   the self-signed certificate — accept it. Tap **Allow** for camera access.
+3. Tap **Start streaming**. The phone shows up as a normal camera here within a second.
+
+From then on the phone behaves like any other camera — failure checks, bed state, printer
+detection, the [live monitor](#live-monitor) grid, [alerts](#alerts), and even being
+[re-served to OctoPrint](#feed-octoprint) (`/webcam?camera=phone-…`) all work against it.
+The capture page has handy knobs: frame rate, JPEG quality, max width, **torch** (lights up
+a dark enclosure), and it holds a **screen wake-lock** so the phone keeps streaming.
+
+Frames are pushed over a WebSocket, so a phone is a *push* camera — it pairs dynamically (no
+`config.json` entry needed) and reconnects to the same camera id if it drops. Configure it
+under the `phone` block:
+
+| Field            | Default | Meaning |
+|------------------|---------|---------|
+| `phone.enabled`  | `true`  | Run the HTTPS phone server. |
+| `phone.httpsPort`| `8788`  | Port for the phone page + pairing socket. |
+| `phone.staleMs`  | `10000` | Treat a phone camera as offline after this gap with no frame. |
+
+Env overrides: `PW_PHONE_PORT` · `PW_PHONE_ENABLED`. The self-signed cert is generated once
+and cached under your data dir (`certs/`).
+
+> **On the same LAN, no auth:** the phone server binds all interfaces so the phone can reach
+> it, and like the rest of the API it has **no authentication** — anyone on your network who
+> opens the page can stream frames in. Fine on a trusted home/farm network; don't expose the
+> port to the internet. See [network exposure](#privacy--offline-use).
 
 ## Feed OctoPrint
 
@@ -300,7 +338,7 @@ legible text it runs a **web lookup** and names the printer from real search res
 
 | Module       | Responsibility                                                              |
 |--------------|-----------------------------------------------------------------------------|
-| `capture/`   | `CaptureSource` implementations (`http-snapshot`, `mjpeg`, `usb`, `folder`) |
+| `capture/`   | `CaptureSource` impls (`http-snapshot`, `mjpeg`, `usb`, `folder`, `push`/phone) |
 | `image/`     | `sharp` preprocessing + before/after stitching                              |
 | `ai/`        | `VisionProvider` interface, Ollama impl, small-model-tuned prompts & schemas|
 | `analysis/`  | `failureCheck`, `troubleshoot`, `bedState`, and `printerDetect`             |
@@ -395,6 +433,8 @@ Every per-camera endpoint accepts `?camera=<id>` (defaults to the first camera).
 | GET    | `/api/sessions` · `/api/sessions/:id` | Troubleshooting sessions             |
 | GET    | `/api/events`                         | Server-Sent Events (progress/alerts) |
 | GET    | `/webcam`                             | OctoPrint-style `?action=snapshot` / `?action=stream` (optional) |
+| GET    | `/api/phone/info` · `/api/phone/qr`   | Phone-pairing URLs + QR code         |
+| WS     | `/ws/ingest`                          | Phone frame ingest (binary JPEG over WebSocket) |
 
 ## Development
 
@@ -407,6 +447,7 @@ npm run app        # build + launch the Electron desktop app
 npm run dist       # build a one-click desktop installer into release/
 npm run docker:up  # build + run via docker compose
 npm run smoke      # end-to-end pipeline smoke test
+npm run smoke:phone # boot the server + pair a fake phone over the ingest socket
 npm run eval       # accuracy eval against the labeled fixtures
 ```
 
@@ -417,6 +458,7 @@ npm run eval       # accuracy eval against the labeled fixtures
 - [x] Desktop app (one-click installer) + Docker packaging
 - [x] Optional MCP server + automated Ollama setup
 - [x] OctoPrint-compatible webcam passthrough
+- [x] Use a phone's camera as a monitor (QR-pair, stream over WebSocket)
 - [ ] Scheduled background monitoring (no tab open) + ntfy/email channels
 - [ ] OctoPrint plugin / print-state awareness (only watch while printing)
 - [ ] Optional cloud-model escalation for *uncertain* verdicts
