@@ -28,7 +28,7 @@ No cloud · no API keys · no images leave your machine (unless you opt into Gem
 
 | | |
 |---|---|
-| 🔎 **"Has this print failed?"** | An on-demand health check with a real **double-check**: it votes across multiple model passes *and* multiple frames seconds apart, so glare, a moving nozzle, or one bad guess don't trigger false alarms. |
+| 🔎 **"Has this print failed?"** | An on-demand health check with a real **double-check**: it votes across multiple model passes *and* multiple frames seconds apart, so glare, a moving nozzle, or one bad guess don't trigger false alarms. When a failure *is* suspected, an optional **second-opinion jury** of other local models votes to confirm it — or veto a false alarm — before you're alerted. |
 | 🛠️ **"Why did it fail?"** | The model diagnoses your symptom, proposes concrete changes each with a **visually verifiable** success signal, then watches a later snapshot (before vs. after) to confirm the fix actually worked. |
 | 🟢 **"What's on the bed?"** | A one-click read of the printer's state — **empty/clean**, **printing**, **complete** (finished part ready to remove), or **failed** — voted across passes the same way. |
 | 🖨️ **"What printer is this?"** | Identifies the machine in view: motion style (bed-slinger / CoreXY / delta) and enclosure, plus make/model. It **reads the branding off the machine and looks it up online** to name the exact printer instead of guessing (e.g. `ACE GEN2` → Anycubic Kobra X). |
@@ -127,7 +127,8 @@ If `ffmpeg` isn't on your `PATH` (e.g. a fresh install in an already-open termin
 point at it with `camera.ffmpegPath` or the `PW_FFMPEG` env var.
 
 Env overrides (no file edit needed): `PW_CAMERA_URL` · `PW_CAMERA_TYPE` · `PW_MODEL` ·
-`PW_OLLAMA_URL` · `PW_PORT` · `PW_FFMPEG` (single-camera vars apply to the first camera).
+`PW_OLLAMA_URL` · `PW_PORT` · `PW_FFMPEG` · `PW_AI_PROVIDER` · `PW_GEMINI_API_KEY`
+(single-camera vars apply to the first camera).
 
 ## Live monitor
 
@@ -298,6 +299,35 @@ beyond Ollama. Any Ollama vision model works:
 > On CPU a single pass on a 4B model is ~30–40s, so the default 2×2 double-check takes a
 > couple of minutes. Use a smaller model or a GPU for snappier checks.
 
+### Second-opinion jury
+
+For higher-stakes accuracy, the failure check can consult a **jury of other local vision
+models** — but only when a failure is *suspected*, so the extra cost is paid only when it
+matters. The primary model is the first juror; each configured model votes in parallel, and
+a majority decides whether to **confirm** the failure or **veto** it as a false alarm.
+Configure under `confirm` in `config.json`:
+
+```jsonc
+"confirm": {
+  "enabled": true,
+  "models": ["moondream"],   // any other pulled Ollama vision models; [] = self-check only
+  "samplesPerJuror": 1
+}
+```
+
+### Use Gemini instead of Ollama (optional, cloud)
+
+Prefer a hosted model? Set `ai.provider` to `gemini` and supply a key — everything else works
+the same. **Note:** unlike Ollama, this sends frames to Google; it's the one backend where
+images leave your machine.
+
+```bash
+PW_AI_PROVIDER=gemini PW_GEMINI_API_KEY="…" PW_MODEL="gemini-2.0-flash" npm run dev
+```
+
+Or set `ai.provider`, `ai.model`, and `ai.apiKey` in `config.json` (keep the key out of the
+file — prefer `PW_GEMINI_API_KEY` / `GEMINI_API_KEY`).
+
 ## Printer & bed state
 
 Two lightweight, one-click reads that answer "what am I looking at?" — both use the same
@@ -341,7 +371,7 @@ legible text it runs a **web lookup** and names the printer from real search res
 | `capture/`   | `CaptureSource` impls (`http-snapshot`, `mjpeg`, `usb`, `folder`, `push`/phone) |
 | `image/`     | `sharp` preprocessing + before/after stitching                              |
 | `ai/`        | `VisionProvider` interface, Ollama impl, small-model-tuned prompts & schemas|
-| `analysis/`  | `failureCheck`, `troubleshoot`, `bedState`, and `printerDetect`             |
+| `analysis/`  | `failureCheck`, `confirm` (second-opinion jury), `troubleshoot`, `bedState`, `printerDetect` |
 | `web/`       | `ddgSearch` — text-only DuckDuckGo lookup used to ground printer make/model |
 | `alerts/`    | Slack/Discord notifiers (webhook + bot) with per-key cooldown               |
 | `mcp/`       | Optional MCP server (stdio) exposing the API as tools for AI clients         |
@@ -404,6 +434,8 @@ The levers that make small models accurate (all in `config.json`):
 - **Decomposition** — explicit per-failure-mode questions beat one vague "is it wrong?".
 - **Double-check** — `check.samples` passes/frame (majority vote) × `check.frames` frames
   spaced `check.frameDelayMs` apart. Real failures persist; noise doesn't.
+- **Second-opinion jury** — on a *suspected* failure, the configured `confirm.models` vote to
+  corroborate or veto before alarming, so a single model's bad call doesn't page you.
 - **Honest uncertainty** — below `check.confidenceThreshold` the verdict is *uncertain*
   rather than a forced yes/no (a natural hook for escalating to a bigger model).
 
